@@ -1,114 +1,125 @@
 {
-    "name": "matlab-formatter",
-    "displayName": "matlab-formatter",
-    "description": "format matlab code",
-    "version": "2.11.0",
-    "publisher": "AffenWiesel",
-    "engines": {
-        "vscode": "^1.20.0"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/affenwiesel/matlab-formatter-vscode"
-    },
-    "categories": [
-        "Other"
-    ],
-    "keywords": [
-        "matlab"
-    ],
-    "activationEvents": [
-        "onLanguage:matlab"
-    ],
-    "main": "./extension",
-    "icon": "images/icon.png",
-    "contributes": {
-        "configuration": {
-            "title": "Matlab-formatter configuration",
-            "type": "object",
-            "properties": {
-                "matlab-formatter.indentwidth": {
-                    "type": "integer",
-                    "default": 4,
-                    "description": "number of spaces used for indentation"
-                },
-                "matlab-formatter.separateBlocks": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "add newlines before and after blocks (for, if, etc.)"
-                },
-                "matlab-formatter.indentMode": {
-                    "type": "string",
-                    "enum": [
-                        "all_functions",
-                        "only_nested_functions",
-                        "classic"
-                    ],
-                    "enumDescriptions": [
-                        "Add indentation inside all functions and classdefs",
-                        "Only add indentation inside nested functions and class-methods",
-                        "No indentation of functions and classes (not recommended)"
-                    ],
-                    "default": "all_functions",
-                    "description": "indentation mode"
-                },
-                "matlab-formatter.addSpaces": {
-                    "type": "string",
-                    "enum": [
-                        "all_operators",
-                        "exclude_pow",
-                        "no_spaces"
-                    ],
-                    "enumDescriptions": [
-                        "Wrap all operators with spaces.",
-                        "Wrap all operators with spaces, except ^ and .^",
-                        "Don't wrap any operators with spaces. (not recommended)"
-                    ],
-                    "default": "all_operators",
-                    "description": "Wrapping of operators with spaces."
-                },
-                "matlab-formatter.matrixIndent": {
-                    "type": "string",
-                    "enum": [
-                        "aligned",
-                        "simple"
-                    ],
-                    "enumDescriptions": [
-                        "Keep rows of a matrix aligned.",
-                        "Use simpe indentation for matrices"
-                    ],
-                    "default": "aligned",
-                    "description": "Indentation of matrices"
-                }
-            }
+  "name": "matlab-formatter-plus",
+  "displayName": "MATLAB Formatter Plus",
+  "description": "A modified edition of AffenWiesel/matlab-formatter-vscode with improved block alignment and blank-line control features",
+  "version": "2.11.4",
+  "publisher": "Krins",
+  "engines": {
+    "vscode": "^1.20.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/affenwiesel/matlab-formatter-vscode"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "matlab"
+  ],
+  "activationEvents": [
+    "onLanguage:matlab"
+  ],
+  "main": "./extension",
+  "icon": "images/icon.png",
+  "contributes": {
+    "configuration": {
+      "title": "MATLAB Formatter Plus",
+      "type": "object",
+      "properties": {
+        "matlab-formatter-plus.indentwidth": {
+          "type": "integer",
+          "default": 4,
+          "description": "number of spaces used for indentation"
         },
-        "languages": [
-            {
-                "id": "matlab",
-                "aliases": [
-                    "MATLAB"
-                ]
-            }
-        ],
-        "capabilities": {
-            "documentFormattingProvider": "true",
-            "documentRangeFormattingProvider": "true"
+        "matlab-formatter-plus.separateBlocks": {
+          "type": "boolean",
+          "default": true,
+          "description": "add newlines before and after blocks (for, if, etc.)"
+        },
+        "matlab-formatter-plus.indentMode": {
+          "type": "string",
+          "enum": [
+            "all_functions",
+            "only_nested_functions",
+            "classic"
+          ],
+          "enumDescriptions": [
+            "Add indentation inside all functions and classdefs",
+            "Only add indentation inside nested functions and class-methods",
+            "No indentation of functions and classes (not recommended)"
+          ],
+          "default": "all_functions",
+          "description": "indentation mode"
+        },
+        "matlab-formatter-plus.addSpaces": {
+          "type": "string",
+          "enum": [
+            "all_operators",
+            "exclude_pow",
+            "no_spaces"
+          ],
+          "enumDescriptions": [
+            "Wrap all operators with spaces.",
+            "Wrap all operators with spaces, except ^ and .^",
+            "Don't wrap any operators with spaces. (not recommended)"
+          ],
+          "default": "all_operators",
+          "description": "Wrapping of operators with spaces."
+        },
+        "matlab-formatter-plus.matrixIndent": {
+          "type": "string",
+          "enum": [
+            "aligned",
+            "simple"
+          ],
+          "enumDescriptions": [
+            "Keep rows of a matrix aligned.",
+            "Use simpe indentation for matrices"
+          ],
+          "default": "aligned",
+          "description": "Indentation of matrices"
+        },
+        "matlab-formatter-plus.squeezeBlankAfterControlBlocks": {
+          "type": "boolean",
+          "default": false,
+          "description": "Force-remove blank lines right after control blocks such as if, for, while, try, switch, methods, properties, events, arguments and enumeration."
+        },
+        "matlab-formatter-plus.squeezeBlankAfterFunctionBlocks": {
+          "type": "boolean",
+          "default": false,
+          "description": "Force-remove blank lines right after function and classdef declarations."
         }
+      }
     },
-    "scripts": {
-        "postinstall": "node ./node_modules/vscode/bin/install",
-        "test": "node ./node_modules/vscode/bin/test"
-    },
-    "devDependencies": {
-        "typescript": "^2.6.1",
-        "vscode": "^1.1.6",
-        "eslint": "^4.11.0",
-        "@types/node": "^7.0.43",
-        "@types/mocha": "^2.2.42"
-    },
-    "__metadata": {
-        "id": "16f49f82-0071-4930-b6b5-b3e3ccd5fb0d",
-        "publisherDisplayName": "AffenWiesel",
-        "publisherId": "c3404b57-de97-47d7-8f81-b4955a94cc2e"
+    "languages": [
+      {
+        "id": "matlab",
+        "aliases": [
+          "MATLAB"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "capabilities": {
+      "documentFormattingProvider": "true",
+      "documentRangeFormattingProvider": "true"
     }
+  },
+  "scripts": {
+    "postinstall": "node ./node_modules/vscode/bin/install",
+    "test": "node ./node_modules/vscode/bin/test"
+  },
+  "devDependencies": {
+    "typescript": "^2.6.1",
+    "vscode": "^1.1.6",
+    "eslint": "^4.11.0",
+    "@types/node": "^7.0.43",
+    "@types/mocha": "^2.2.42"
+  },
+  "__metadata": {
+    "id": "16f49f82-0071-4930-b6b5-b3e3ccd5fb0d",
+    "publisherDisplayName": "AffenWiesel",
+    "publisherId": "c3404b57-de97-47d7-8f81-b4955a94cc2e"
+  }
 }

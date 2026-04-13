@@ -25,6 +25,7 @@ const os = require("os");
 var channel = null;
 const fullRange = doc => doc.validateRange(new vscode.Range(0, 0, Number.MAX_VALUE, Number.MAX_VALUE));
 const MODE = { language: 'matlab' };
+const CONFIG_SECTION = 'matlab-formatter-plus';
 
 class MatlabFormatter {
     constructor() {
@@ -48,15 +49,17 @@ class MatlabFormatter {
 
     format(document, range) {
         return new Promise((resolve, reject) => {
-            let indentwidth = " --indentWidth=" + vscode.workspace.getConfiguration('matlab-formatter')['indentwidth'];
-            let separateBlocks = " --separateBlocks=" + vscode.workspace.getConfiguration('matlab-formatter')['separateBlocks'];
-            let indentMode = " --indentMode=" + vscode.workspace.getConfiguration('matlab-formatter')['indentMode'];
-            let addSpaces = " --addSpaces=" + vscode.workspace.getConfiguration('matlab-formatter')['addSpaces'];
-            let matrixIndent = " --matrixIndent=" + vscode.workspace.getConfiguration('matlab-formatter')['matrixIndent'];
+            let indentwidth = " --indentWidth=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['indentwidth'];
+            let separateBlocks = " --separateBlocks=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['separateBlocks'];
+            let indentMode = " --indentMode=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['indentMode'];
+            let addSpaces = " --addSpaces=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['addSpaces'];
+            let matrixIndent = " --matrixIndent=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['matrixIndent'];
+            let squeezeBlankAfterControlBlocks = " --squeezeBlankAfterControlBlocks=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['squeezeBlankAfterControlBlocks'];
+            let squeezeBlankAfterFunctionBlocks = " --squeezeBlankAfterFunctionBlocks=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['squeezeBlankAfterFunctionBlocks'];
             let filename = ' -';
             let start = " --startLine=" + (range.start.line + 1);
             let end = " --endLine=" + (range.end.line + 1);
-            var p = cp.exec(this.py + " " + this.formatter + " " + filename + indentwidth + separateBlocks + indentMode + addSpaces + matrixIndent + start + end, (err, stdout, stderr) => {
+            var p = cp.exec(this.py + " " + this.formatter + " " + filename + indentwidth + separateBlocks + indentMode + addSpaces + matrixIndent + squeezeBlankAfterControlBlocks + squeezeBlankAfterFunctionBlocks + start + end, (err, stdout, stderr) => {
                 if (stdout != '') {
                     let toreplace = document.validateRange(new vscode.Range(range.start.line, 0, range.end.line + 1, 0));
                     var edit = [vscode.TextEdit.replace(toreplace, stdout)];
@@ -91,7 +94,7 @@ class MatlabDocumentRangeFormatter {
 }
 
 function activate(context) {
-    channel = vscode.window.createOutputChannel('matlab-formatter');
+    channel = vscode.window.createOutputChannel('MATLAB Formatter Plus');
     const formatter = new MatlabDocumentRangeFormatter();
     context.subscriptions.push(vscode.languages.registerDocumentFormattingEditProvider(MODE, formatter));
     context.subscriptions.push(vscode.languages.registerDocumentRangeFormattingEditProvider(MODE, formatter));

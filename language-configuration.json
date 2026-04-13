@@ -1,0 +1,6 @@
+{
+  "indentationRules": {
+    "increaseIndentPattern": "^\\s*(?!%)(?!(?:end|elseif|else|catch|case|otherwise)\\b)(?=.*\\b(?:function|classdef|if|for|parfor|while|switch|try|methods|properties|events|arguments|enumeration|spmd)\\b)(?!.*\\bend\\b).*$",
+    "decreaseIndentPattern": "^\\s*(?!%)(?:end|elseif|else|catch|case|otherwise)\\b.*$"
+  }
+}

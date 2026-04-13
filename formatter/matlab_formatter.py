@@ -27,7 +27,8 @@ class Formatter:
     # control sequences
     ctrl_1line = re.compile(r'(\s*)(if|while|for|try)(\W\s*\S.*\W)((end|endif|endwhile|endfor);?)(\s+\S.*|\s*$)')
     fcnstart = re.compile(r'(\s*)(function|classdef)\s*(\W\s*\S.*|\s*$)')
-    ctrlstart = re.compile(r'(\s*)(if|while|for|parfor|try|methods|properties|events|arguments|enumeration|spmd)\s*(\W\s*\S.*|\s*$)')
+    ctrlstart = re.compile(r'(\s*)(if|while|for|parfor|try|spmd)\b\s*(\W\s*\S.*|\s*$)')
+    ctrlstart_decl = re.compile(r'(\s*)(methods|properties|events|arguments|enumeration)\b(\s*(\([^%]*\))?\s*(%.*)?\s*$)')
     ctrl_ignore = re.compile(r'(\s*)(import|clear|clearvars)(.*$)')
     ctrlstart_2 = re.compile(r'(\s*)(switch)\s*(\W\s*\S.*|\s*$)')
     ctrlcont = re.compile(r'(\s*)(elseif|else|case|otherwise|catch)\s*(\W\s*\S.*|\s*$)')
@@ -83,27 +84,25 @@ class Formatter:
         tmp, self.cell = self.cellIndent(line, '{', '}', self.cell)
         return tmp
 
-    # indentation
-    ilvl = 0
-    istep = []
-    fstep = []
-    iwidth = 0
-    matrix = 0
-    cell = 0
-    isblockcomment = 0
-    islinecomment = 0
-    longline = 0
-    continueline = 0
-    iscomment = 0
-    separateBlocks = False
-    ignoreLines = 0
-
     def __init__(self, indentwidth, separateBlocks, indentMode, operatorSep, matrixIndent):
+        self.ilvl = 0
+        self.istep = []
+        self.fstep = []
         self.iwidth = indentwidth
+        self.matrix = 0
+        self.cell = 0
+        self.isblockcomment = 0
+        self.islinecomment = 0
+        self.longline = 0
+        self.continueline = 0
+        self.iscomment = 0
         self.separateBlocks = separateBlocks
+        self.ignoreLines = 0
         self.indentMode = indentMode
         self.operatorSep = operatorSep
         self.matrixIndent = matrixIndent
+        self.squeezeBlankAfterControlBlocks = False
+        self.squeezeBlankAfterFunctionBlocks = False
 
     def cleanLineFromStringsAndComments(self, line):
         split = self.extract_string_comment(line)
@@ -253,6 +252,7 @@ class Formatter:
 
     # take care of indentation and call format(line)
     def formatLine(self, line):
+        self.currentBlockStartType = None
 
         if (self.ignoreLines > 0):
             self.ignoreLines -= 1
@@ -304,16 +304,6 @@ class Formatter:
         if m:
             return (0, self.indent() + line.strip())
 
-        # find matrices
-        tmp = self.matrix
-        if self.multilinematrix(line) or tmp:
-            return (0, self.indent(tmp) + self.format(line).strip())
-
-        # find cell arrays
-        tmp = self.cell
-        if self.cellarray(line) or tmp:
-            return (0, self.indent(tmp) + self.format(line).strip())
-
         # find control structures
         m = re.match(self.ctrl_1line, line)
         if m:
@@ -325,16 +315,25 @@ class Formatter:
             self.fstep.append(1)
             if self.indentMode == -1:
                 offset = int(len(self.fstep) > 1)
+            self.currentBlockStartType = 'function'
             return (offset, self.indent() + m.group(2) + ' ' + self.format(m.group(3)).strip())
 
         m = re.match(self.ctrlstart, line)
         if m:
             self.istep.append(1)
+            self.currentBlockStartType = 'control'
             return (1, self.indent() + m.group(2) + ' ' + self.format(m.group(3)).strip())
+
+        m = re.match(self.ctrlstart_decl, line)
+        if m:
+            self.istep.append(1)
+            self.currentBlockStartType = 'control'
+            return (1, self.indent() + m.group(2) + self.format(m.group(3)).rstrip())
 
         m = re.match(self.ctrlstart_2, line)
         if m:
             self.istep.append(2)
+            self.currentBlockStartType = 'control'
             return (2, self.indent() + m.group(2) + ' ' + self.format(m.group(3)).strip())
 
         m = re.match(self.ctrlcont, line)
@@ -352,35 +351,53 @@ class Formatter:
                 step = 0
             return (-step, self.indent(-step*self.iwidth) + m.group(2) + ' ' + self.format(m.group(4)).strip())
 
+        # find matrices
+        tmp = self.matrix
+        if self.multilinematrix(line) or tmp:
+            return (0, self.indent(tmp) + self.format(line).strip())
+
+        # find cell arrays
+        tmp = self.cell
+        if self.cellarray(line) or tmp:
+            return (0, self.indent(tmp) + self.format(line).strip())
+
         return (0, self.indent() + self.format(line).strip())
 
     # format file from line 'start' to line 'end'
     def formatFile(self, filename, start, end):
         # read lines from file
-        wlines = rlines = []
+        wlines = []
+        all_lines = []
 
         if filename == '-':
             with sys.stdin as f:
-                rlines = f.readlines()[start-1:end]
+                all_lines = f.readlines()
         else:
             with open(filename, 'r', encoding='UTF-8') as f:
-                rlines = f.readlines()[start-1:end]
+                all_lines = f.readlines()
+
+        rlines = all_lines[start-1:end]
 
         # take care of empty input
         if not rlines:
             rlines = ['']
 
-        # get initial indent lvl
-        p = r'(\s*)(.*)'
-        m = re.match(p, rlines[0])
-        if m:
-            self.ilvl = len(m.group(1))//self.iwidth
-            rlines[0] = m.group(2)
+        # Rebuild formatter state from the lines before the formatted range so
+        # range-formatting can still align block endings with their openings.
+        for line in all_lines[:start-1]:
+            if re.match(r'^\s*$', line):
+                continue
+            (offset, _) = self.formatLine(line)
+            self.ilvl = max(0, self.ilvl + offset)
 
         blank = True
+        previousBlockStartType = None
         for line in rlines:
             # remove additional newlines
             if re.match(r'^\s*$', line):
+                if ((previousBlockStartType == 'control' and self.squeezeBlankAfterControlBlocks) or
+                        (previousBlockStartType == 'function' and self.squeezeBlankAfterFunctionBlocks)):
+                    continue
                 if not blank:
                     blank = True
                     wlines.append('')
@@ -406,6 +423,7 @@ class Formatter:
                 blank = True
             else:
                 blank = False
+            previousBlockStartType = self.currentBlockStartType
 
         # remove last line if blank
         while wlines and not wlines[-1]:
@@ -423,7 +441,9 @@ class Formatter:
 def main():
     options = dict(startLine=1, endLine=None, indentWidth=4,
                    separateBlocks=True, indentMode='',
-                   addSpaces='', matrixIndent='')
+                   addSpaces='', matrixIndent='',
+                   squeezeBlankAfterControlBlocks=False,
+                   squeezeBlankAfterFunctionBlocks=False)
 
     indentModes = dict(all_functions=1, only_nested_functions=-1, classic=0)
     operatorSpaces = dict(all_operators=1, exclude_pow=0.5, no_spaces=0)
@@ -460,6 +480,8 @@ def main():
         matInd = matrixIndentation.get(options['matrixIndent'], matrixIndentation['aligned'])
 
         formatter = Formatter(indent, sep, mode, opSp, matInd)
+        formatter.squeezeBlankAfterControlBlocks = options['squeezeBlankAfterControlBlocks']
+        formatter.squeezeBlankAfterFunctionBlocks = options['squeezeBlankAfterFunctionBlocks']
         formatter.formatFile(sys.argv[1], start, end)
 
 
