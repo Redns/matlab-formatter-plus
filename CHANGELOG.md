@@ -1,5 +1,29 @@
 # Change Log
 
+### 2.12.1
+bugfixes:
+* remove unwanted blank lines between `end` and following control-flow continuations such as `elseif`, `else`, and `catch`
+* avoid inserting extra blank lines before nested blocks that follow control-flow continuations
+* guard against negative indentation during partial or edge-case formatting
+
+### 2.12.0
+refactor:
+* replace the Python formatter runtime with a pure JavaScript implementation
+* remove the Python runtime requirement for extension users
+* add standalone Node.js usage for the formatter
+
+maintenance:
+* update extension metadata and repository information
+* align VS Code engine compatibility and packaging metadata
+* categorize the extension under `Formatters`
+
+### 2.11.5
+features:
+* improve `for/end`, `if/end`, `try/catch/end`, and range-formatting block alignment behavior
+* add settings to force-remove blank lines after control blocks
+* add settings to force-remove blank lines after `function` and `classdef`
+* add MATLAB language indentation rules in VS Code for a better block editing experience
+
 ### 2.11.0
 important security update:
 remove options `pythonPath` and `formatterPath`

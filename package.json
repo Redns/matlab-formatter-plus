@@ -2,7 +2,7 @@
   "name": "matlab-formatter-plus",
   "displayName": "MATLAB Formatter Plus",
   "description": "A modified edition of AffenWiesel/matlab-formatter-vscode with improved block alignment and blank-line control features",
-  "version": "2.12.0",
+  "version": "2.12.1",
   "publisher": "Krins",
   "engines": {
     "vscode": "^1.20.0"

@@ -236,7 +236,7 @@ class Formatter {
     }
 
     indent(addspaces = 0) {
-        return " ".repeat((this.ilvl + this.continueline) * this.iwidth + addspaces);
+        return " ".repeat(Math.max(0, (this.ilvl + this.continueline) * this.iwidth + addspaces));
     }
 
     classifyBlockStart(line) {
@@ -247,6 +247,13 @@ class Formatter {
             return "function";
         }
         if (Formatter.ctrlstart.test(line) || Formatter.ctrlstartDecl.test(line) || Formatter.ctrlstart2.test(line)) {
+            return "control";
+        }
+        return null;
+    }
+
+    classifyBlockContinuation(line) {
+        if (Formatter.ctrlcont.test(line)) {
             return "control";
         }
         return null;
@@ -413,12 +420,15 @@ class Formatter {
 
         let blank = true;
         let previousBlockStartType = null;
+        let previousBlockContinuationType = null;
         let previousLineStartedBlock = false;
+        let previousLineContinuedBlock = false;
         let previousLineEndedBlock = false;
 
         for (let idx = 0; idx < rlines.length; idx += 1) {
             const line = rlines[idx];
             let nextBlockStartType = null;
+            let nextBlockContinuationType = null;
             let nextLineIsBlockEnd = false;
 
             for (const nextLine of rlines.slice(idx + 1)) {
@@ -426,11 +436,15 @@ class Formatter {
                     continue;
                 }
                 nextBlockStartType = this.classifyBlockStart(nextLine);
+                nextBlockContinuationType = this.classifyBlockContinuation(nextLine);
                 nextLineIsBlockEnd = this.isBlockEnd(nextLine);
                 break;
             }
 
             if (/^\s*$/.test(line)) {
+                if (nextBlockContinuationType !== null) {
+                    continue;
+                }
                 if (
                     previousLineStartedBlock
                     && nextBlockStartType !== null
@@ -447,6 +461,7 @@ class Formatter {
                 }
                 if (
                     (previousBlockStartType === "control" && this.squeezeBlankAfterControlBlocks)
+                    || (previousBlockContinuationType === "control" && this.squeezeBlankAfterControlBlocks)
                     || (previousBlockStartType === "function" && this.squeezeBlankAfterFunctionBlocks)
                 ) {
                     continue;
@@ -459,6 +474,7 @@ class Formatter {
             }
 
             const [offset, formattedLine] = this.formatLine(line);
+            const currentBlockContinuationType = this.classifyBlockContinuation(line);
             this.ilvl = Math.max(0, this.ilvl + offset);
 
             if (
@@ -467,6 +483,7 @@ class Formatter {
                 && offset > 0
                 && !blank
                 && !this.islinecomment
+                && !previousLineContinuedBlock
                 && (this.allowBlankLineBetweenConsecutiveBlockStarts || !previousLineStartedBlock)
             ) {
                 wlines.push("");
@@ -478,6 +495,7 @@ class Formatter {
                 this.separateBlocks
                 && this.insertBlankLineAfterBlocks
                 && offset < 0
+                && nextBlockContinuationType === null
                 && (this.allowBlankLineBetweenConsecutiveBlockEnds || !nextLineIsBlockEnd)
             ) {
                 wlines.push("");
@@ -486,7 +504,9 @@ class Formatter {
                 blank = false;
             }
             previousBlockStartType = this.currentBlockStartType;
+            previousBlockContinuationType = currentBlockContinuationType;
             previousLineStartedBlock = this.currentBlockStartType !== null;
+            previousLineContinuedBlock = currentBlockContinuationType !== null;
             previousLineEndedBlock = offset < 0;
         }
 
