@@ -54,12 +54,16 @@ class MatlabFormatter {
             let indentMode = " --indentMode=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['indentMode'];
             let addSpaces = " --addSpaces=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['addSpaces'];
             let matrixIndent = " --matrixIndent=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['matrixIndent'];
+            let insertBlankLineBeforeBlocks = " --insertBlankLineBeforeBlocks=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['insertBlankLineBeforeBlocks'];
+            let insertBlankLineAfterBlocks = " --insertBlankLineAfterBlocks=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['insertBlankLineAfterBlocks'];
+            let allowBlankLineBetweenConsecutiveBlockStarts = " --allowBlankLineBetweenConsecutiveBlockStarts=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['allowBlankLineBetweenConsecutiveBlockStarts'];
+            let allowBlankLineBetweenConsecutiveBlockEnds = " --allowBlankLineBetweenConsecutiveBlockEnds=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['allowBlankLineBetweenConsecutiveBlockEnds'];
             let squeezeBlankAfterControlBlocks = " --squeezeBlankAfterControlBlocks=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['squeezeBlankAfterControlBlocks'];
             let squeezeBlankAfterFunctionBlocks = " --squeezeBlankAfterFunctionBlocks=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['squeezeBlankAfterFunctionBlocks'];
             let filename = ' -';
             let start = " --startLine=" + (range.start.line + 1);
             let end = " --endLine=" + (range.end.line + 1);
-            var p = cp.exec(this.py + " " + this.formatter + " " + filename + indentwidth + separateBlocks + indentMode + addSpaces + matrixIndent + squeezeBlankAfterControlBlocks + squeezeBlankAfterFunctionBlocks + start + end, (err, stdout, stderr) => {
+            var p = cp.exec(this.py + " " + this.formatter + " " + filename + indentwidth + separateBlocks + indentMode + addSpaces + matrixIndent + insertBlankLineBeforeBlocks + insertBlankLineAfterBlocks + allowBlankLineBetweenConsecutiveBlockStarts + allowBlankLineBetweenConsecutiveBlockEnds + squeezeBlankAfterControlBlocks + squeezeBlankAfterFunctionBlocks + start + end, (err, stdout, stderr) => {
                 if (stdout != '') {
                     let toreplace = document.validateRange(new vscode.Range(range.start.line, 0, range.end.line + 1, 0));
                     var edit = [vscode.TextEdit.replace(toreplace, stdout)];

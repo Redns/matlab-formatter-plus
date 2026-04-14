@@ -17,7 +17,11 @@ Added features in this edition:
 
 ## Extension Settings
 * `matlab-formatter-plus.indentwidth`: Number of spaces used for indentation.
-* `matlab-formatter-plus.separateBlocks`: Control whether newlines should be added before and after blocks such as for, if, while and so on.
+* `matlab-formatter-plus.separateBlocks`: Legacy master switch for block blank-line formatting.
+* `matlab-formatter-plus.insertBlankLineBeforeBlocks`: Insert a blank line before block starts such as `if`, `for`, and `try`.
+* `matlab-formatter-plus.insertBlankLineAfterBlocks`: Insert a blank line after block endings.
+* `matlab-formatter-plus.allowBlankLineBetweenConsecutiveBlockStarts`: Allow or suppress blank lines between consecutive nested block starts such as `for` followed immediately by another `for`.
+* `matlab-formatter-plus.allowBlankLineBetweenConsecutiveBlockEnds`: Allow or suppress blank lines between consecutive nested block endings such as `end` followed immediately by another `end`.
 * `matlab-formatter-plus.indentMode`: Chose smart indentation mode: indent all functions, indent only nested functions, or don't indent inside any function.
 * `matlab-formatter-plus.addSpaces`: Chose which operators should be wrapped with spaces: all operators, all but power (`^`, `.^`) or don't wrap any operators.
 * `matlab-formatter-plus.matrixIndent`: Chose how matrices should be indented. Either keep all rows aligned or use only one level of indentation.

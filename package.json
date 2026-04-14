@@ -2,7 +2,7 @@
   "name": "matlab-formatter-plus",
   "displayName": "MATLAB Formatter Plus",
   "description": "A modified edition of AffenWiesel/matlab-formatter-vscode with improved block alignment and blank-line control features",
-  "version": "2.11.4",
+  "version": "2.11.5",
   "publisher": "Krins",
   "engines": {
     "vscode": "^1.20.0"
@@ -35,7 +35,27 @@
         "matlab-formatter-plus.separateBlocks": {
           "type": "boolean",
           "default": true,
-          "description": "add newlines before and after blocks (for, if, etc.)"
+          "description": "Legacy master switch for block blank-line formatting. Keep enabled to use the detailed block blank-line options below."
+        },
+        "matlab-formatter-plus.insertBlankLineBeforeBlocks": {
+          "type": "boolean",
+          "default": true,
+          "description": "Insert a blank line before block starts such as if, for, while, try, switch, methods, properties, events, arguments and enumeration."
+        },
+        "matlab-formatter-plus.insertBlankLineAfterBlocks": {
+          "type": "boolean",
+          "default": true,
+          "description": "Insert a blank line after block endings such as end, endif, endfor and endswitch."
+        },
+        "matlab-formatter-plus.allowBlankLineBetweenConsecutiveBlockStarts": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow a blank line between consecutive block starts such as nested for/if blocks. Disable this to keep nested blocks compact."
+        },
+        "matlab-formatter-plus.allowBlankLineBetweenConsecutiveBlockEnds": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow a blank line between consecutive block endings such as nested end/end pairs. Disable this to keep nested block endings compact."
         },
         "matlab-formatter-plus.indentMode": {
           "type": "string",

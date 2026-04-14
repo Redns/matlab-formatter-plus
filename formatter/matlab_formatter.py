@@ -101,6 +101,10 @@ class Formatter:
         self.indentMode = indentMode
         self.operatorSep = operatorSep
         self.matrixIndent = matrixIndent
+        self.insertBlankLineBeforeBlocks = True
+        self.insertBlankLineAfterBlocks = True
+        self.allowBlankLineBetweenConsecutiveBlockStarts = False
+        self.allowBlankLineBetweenConsecutiveBlockEnds = False
         self.squeezeBlankAfterControlBlocks = False
         self.squeezeBlankAfterFunctionBlocks = False
 
@@ -250,6 +254,22 @@ class Formatter:
         indnt = ((self.ilvl+self.continueline)*self.iwidth + addspaces)*' '
         return indnt
 
+    def classifyBlockStart(self, line):
+        if re.match(self.ctrl_1line, line):
+            return None
+        if re.match(self.fcnstart, line):
+            return 'function'
+        if re.match(self.ctrlstart, line):
+            return 'control'
+        if re.match(self.ctrlstart_decl, line):
+            return 'control'
+        if re.match(self.ctrlstart_2, line):
+            return 'control'
+        return None
+
+    def isBlockEnd(self, line):
+        return re.match(self.ctrlend, line) is not None
+
     # take care of indentation and call format(line)
     def formatLine(self, line):
         self.currentBlockStartType = None
@@ -392,9 +412,26 @@ class Formatter:
 
         blank = True
         previousBlockStartType = None
-        for line in rlines:
+        previousLineStartedBlock = False
+        previousLineEndedBlock = False
+        for idx, line in enumerate(rlines):
+            nextBlockStartType = None
+            nextLineIsBlockEnd = False
+            for nextLine in rlines[idx+1:]:
+                if re.match(r'^\s*$', nextLine):
+                    continue
+                nextBlockStartType = self.classifyBlockStart(nextLine)
+                nextLineIsBlockEnd = self.isBlockEnd(nextLine)
+                break
+
             # remove additional newlines
             if re.match(r'^\s*$', line):
+                if (previousLineStartedBlock and nextBlockStartType is not None and
+                        not self.allowBlankLineBetweenConsecutiveBlockStarts):
+                    continue
+                if (previousLineEndedBlock and nextLineIsBlockEnd and
+                        not self.allowBlankLineBetweenConsecutiveBlockEnds):
+                    continue
                 if ((previousBlockStartType == 'control' and self.squeezeBlankAfterControlBlocks) or
                         (previousBlockStartType == 'function' and self.squeezeBlankAfterFunctionBlocks)):
                     continue
@@ -410,20 +447,24 @@ class Formatter:
             self.ilvl = max(0, self.ilvl + offset)
 
             # add newline before block
-            if (self.separateBlocks and offset > 0 and
-                    not blank and not self.islinecomment):
+            if (self.separateBlocks and self.insertBlankLineBeforeBlocks and offset > 0 and
+                    not blank and not self.islinecomment and
+                    (self.allowBlankLineBetweenConsecutiveBlockStarts or not previousLineStartedBlock)):
                 wlines.append('')
 
             # add formatted line
             wlines.append(line.rstrip())
 
             # add newline after block
-            if self.separateBlocks and offset < 0:
+            if (self.separateBlocks and self.insertBlankLineAfterBlocks and offset < 0 and
+                    (self.allowBlankLineBetweenConsecutiveBlockEnds or not nextLineIsBlockEnd)):
                 wlines.append('')
                 blank = True
             else:
                 blank = False
             previousBlockStartType = self.currentBlockStartType
+            previousLineStartedBlock = self.currentBlockStartType is not None
+            previousLineEndedBlock = offset < 0
 
         # remove last line if blank
         while wlines and not wlines[-1]:
@@ -442,6 +483,10 @@ def main():
     options = dict(startLine=1, endLine=None, indentWidth=4,
                    separateBlocks=True, indentMode='',
                    addSpaces='', matrixIndent='',
+                   insertBlankLineBeforeBlocks=True,
+                   insertBlankLineAfterBlocks=True,
+                   allowBlankLineBetweenConsecutiveBlockStarts=False,
+                   allowBlankLineBetweenConsecutiveBlockEnds=False,
                    squeezeBlankAfterControlBlocks=False,
                    squeezeBlankAfterFunctionBlocks=False)
 
@@ -480,6 +525,10 @@ def main():
         matInd = matrixIndentation.get(options['matrixIndent'], matrixIndentation['aligned'])
 
         formatter = Formatter(indent, sep, mode, opSp, matInd)
+        formatter.insertBlankLineBeforeBlocks = options['insertBlankLineBeforeBlocks']
+        formatter.insertBlankLineAfterBlocks = options['insertBlankLineAfterBlocks']
+        formatter.allowBlankLineBetweenConsecutiveBlockStarts = options['allowBlankLineBetweenConsecutiveBlockStarts']
+        formatter.allowBlankLineBetweenConsecutiveBlockEnds = options['allowBlankLineBetweenConsecutiveBlockEnds']
         formatter.squeezeBlankAfterControlBlocks = options['squeezeBlankAfterControlBlocks']
         formatter.squeezeBlankAfterFunctionBlocks = options['squeezeBlankAfterFunctionBlocks']
         formatter.formatFile(sys.argv[1], start, end)
