@@ -1,6 +1,7 @@
 # MATLAB Formatter Plus
 
 Indent and format MATLAB code.
+
 Also usable as standalone without VScode.
 
 This extension is modified from [affenwiesel/matlab-formatter-vscode](https://github.com/affenwiesel/matlab-formatter-vscode).
@@ -13,7 +14,9 @@ Added features in this edition:
 ![IMAGE](images/example.gif)
 
 ## Requirements
-- python 3.6
+- VS Code 1.20 or newer for the extension
+- No extra runtime is required for extension users
+- Node.js is only needed if you want to run the formatter standalone from the command line or develop this project
 
 ## Extension Settings
 * `matlab-formatter-plus.indentwidth`: Number of spaces used for indentation.
@@ -30,3 +33,16 @@ Added features in this edition:
 
 ## Additional Options
 * The formatter can be switched off for selected lines by adding the comment `formatter ignore N`. For the next `N` lines, only the indentation will be fixed. Other than that, they will not be altered.
+
+## Standalone Usage
+Run the formatter directly with Node.js:
+
+```bash
+node formatter/matlab_formatter.js path/to/file.m
+```
+
+Or via stdin:
+
+```bash
+Get-Content path/to/file.m | node formatter/matlab_formatter.js -
+```

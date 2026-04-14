@@ -2,17 +2,17 @@
   "name": "matlab-formatter-plus",
   "displayName": "MATLAB Formatter Plus",
   "description": "A modified edition of AffenWiesel/matlab-formatter-vscode with improved block alignment and blank-line control features",
-  "version": "2.11.5",
+  "version": "2.12.0",
   "publisher": "Krins",
   "engines": {
     "vscode": "^1.20.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/affenwiesel/matlab-formatter-vscode"
+    "url": "https://github.com/Redns/matlab-formatter-plus"
   },
   "categories": [
-    "Other"
+    "Formatters"
   ],
   "keywords": [
     "matlab"
@@ -120,26 +120,14 @@
         ],
         "configuration": "./language-configuration.json"
       }
-    ],
-    "capabilities": {
-      "documentFormattingProvider": "true",
-      "documentRangeFormattingProvider": "true"
-    }
+    ]
   },
   "scripts": {
-    "postinstall": "node ./node_modules/vscode/bin/install",
-    "test": "node ./node_modules/vscode/bin/test"
+    "test": "node -e \"const fs=require('fs'); const { formatText }=require('./formatter/matlab_formatter'); const input=fs.readFileSync('./formatter/test.m','utf8'); formatText(input,{ startLine: 1, endLine: 999999 }); console.log('formatter ok');\""
   },
   "devDependencies": {
-    "typescript": "^2.6.1",
-    "vscode": "^1.1.6",
-    "eslint": "^4.11.0",
-    "@types/node": "^7.0.43",
-    "@types/mocha": "^2.2.42"
-  },
-  "__metadata": {
-    "id": "16f49f82-0071-4930-b6b5-b3e3ccd5fb0d",
-    "publisherDisplayName": "AffenWiesel",
-    "publisherId": "c3404b57-de97-47d7-8f81-b4955a94cc2e"
+    "@types/node": "^20.19.0",
+    "@types/vscode": "^1.20.0",
+    "@vscode/test-electron": "^2.5.2"
   }
 }

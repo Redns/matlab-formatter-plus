@@ -19,25 +19,12 @@
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 const vscode = require("vscode");
-const cp = require("child_process");
-const stream = require('stream');
-const os = require("os");
-var channel = null;
+const { formatText } = require("./formatter/matlab_formatter");
 const fullRange = doc => doc.validateRange(new vscode.Range(0, 0, Number.MAX_VALUE, Number.MAX_VALUE));
 const MODE = { language: 'matlab' };
 const CONFIG_SECTION = 'matlab-formatter-plus';
 
 class MatlabFormatter {
-    constructor() {
-        this.machine_os = os.platform();
-        console.log(this.machine_os);
-        this.py = '';
-        if (this.machine_os == 'win32') {
-            this.py = 'python ';
-        }
-        this.formatter = '"'+ __dirname + '/formatter/matlab_formatter.py"';
-    }
-
     formatDocument(document, range) {
         return new Promise((resolve, reject) => {
             this.format(document, range).then((res) => {
@@ -49,36 +36,31 @@ class MatlabFormatter {
 
     format(document, range) {
         return new Promise((resolve, reject) => {
-            let indentwidth = " --indentWidth=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['indentwidth'];
-            let separateBlocks = " --separateBlocks=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['separateBlocks'];
-            let indentMode = " --indentMode=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['indentMode'];
-            let addSpaces = " --addSpaces=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['addSpaces'];
-            let matrixIndent = " --matrixIndent=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['matrixIndent'];
-            let insertBlankLineBeforeBlocks = " --insertBlankLineBeforeBlocks=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['insertBlankLineBeforeBlocks'];
-            let insertBlankLineAfterBlocks = " --insertBlankLineAfterBlocks=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['insertBlankLineAfterBlocks'];
-            let allowBlankLineBetweenConsecutiveBlockStarts = " --allowBlankLineBetweenConsecutiveBlockStarts=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['allowBlankLineBetweenConsecutiveBlockStarts'];
-            let allowBlankLineBetweenConsecutiveBlockEnds = " --allowBlankLineBetweenConsecutiveBlockEnds=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['allowBlankLineBetweenConsecutiveBlockEnds'];
-            let squeezeBlankAfterControlBlocks = " --squeezeBlankAfterControlBlocks=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['squeezeBlankAfterControlBlocks'];
-            let squeezeBlankAfterFunctionBlocks = " --squeezeBlankAfterFunctionBlocks=" + vscode.workspace.getConfiguration(CONFIG_SECTION)['squeezeBlankAfterFunctionBlocks'];
-            let filename = ' -';
-            let start = " --startLine=" + (range.start.line + 1);
-            let end = " --endLine=" + (range.end.line + 1);
-            var p = cp.exec(this.py + " " + this.formatter + " " + filename + indentwidth + separateBlocks + indentMode + addSpaces + matrixIndent + insertBlankLineBeforeBlocks + insertBlankLineAfterBlocks + allowBlankLineBetweenConsecutiveBlockStarts + allowBlankLineBetweenConsecutiveBlockEnds + squeezeBlankAfterControlBlocks + squeezeBlankAfterFunctionBlocks + start + end, (err, stdout, stderr) => {
-                if (stdout != '') {
-                    let toreplace = document.validateRange(new vscode.Range(range.start.line, 0, range.end.line + 1, 0));
-                    var edit = [vscode.TextEdit.replace(toreplace, stdout)];
-                    if (stderr != '') {
-                        vscode.window.showWarningMessage('formatting warning:\n'+stderr);
-                    }
-                    return resolve(edit);
-                }
-                vscode.window.showErrorMessage('formatting failed:\n'+stderr);
+            try {
+                const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
+                const formatted = formatText(document.getText(), {
+                    indentWidth: config.get('indentwidth'),
+                    separateBlocks: config.get('separateBlocks'),
+                    indentMode: config.get('indentMode'),
+                    addSpaces: config.get('addSpaces'),
+                    matrixIndent: config.get('matrixIndent'),
+                    insertBlankLineBeforeBlocks: config.get('insertBlankLineBeforeBlocks'),
+                    insertBlankLineAfterBlocks: config.get('insertBlankLineAfterBlocks'),
+                    allowBlankLineBetweenConsecutiveBlockStarts: config.get('allowBlankLineBetweenConsecutiveBlockStarts'),
+                    allowBlankLineBetweenConsecutiveBlockEnds: config.get('allowBlankLineBetweenConsecutiveBlockEnds'),
+                    squeezeBlankAfterControlBlocks: config.get('squeezeBlankAfterControlBlocks'),
+                    squeezeBlankAfterFunctionBlocks: config.get('squeezeBlankAfterFunctionBlocks'),
+                    startLine: range.start.line + 1,
+                    endLine: range.end.line + 1,
+                });
+                let toreplace = document.validateRange(new vscode.Range(range.start.line, 0, range.end.line + 1, 0));
+                var edit = [vscode.TextEdit.replace(toreplace, formatted)];
+                return resolve(edit);
+            } catch (error) {
+                const message = error && error.message ? error.message : String(error);
+                vscode.window.showErrorMessage('formatting failed:\n' + message);
                 return resolve(null);
-            });
-            var stdinStream = new stream.Readable();
-            stdinStream.push(document.getText());
-            stdinStream.push(null);
-            stdinStream.pipe(p.stdin);
+            }
         });
     }
 }
@@ -98,7 +80,6 @@ class MatlabDocumentRangeFormatter {
 }
 
 function activate(context) {
-    channel = vscode.window.createOutputChannel('MATLAB Formatter Plus');
     const formatter = new MatlabDocumentRangeFormatter();
     context.subscriptions.push(vscode.languages.registerDocumentFormattingEditProvider(MODE, formatter));
     context.subscriptions.push(vscode.languages.registerDocumentRangeFormattingEditProvider(MODE, formatter));
