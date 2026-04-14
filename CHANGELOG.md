@@ -1,5 +1,12 @@
 # Change Log
 
+### 2.12.2
+performance:
+* reduce repeated look-ahead work when scanning blank lines and nearby control-flow structure
+* short-circuit control-flow classification by leading keyword to avoid unnecessary regex checks
+* skip heavy matrix and cell indentation detection on lines without bracket or brace candidates
+* add a local benchmark script for measuring formatter runtime changes
+
 ### 2.12.1
 bugfixes:
 * remove unwanted blank lines between `end` and following control-flow continuations such as `elseif`, `else`, and `catch`

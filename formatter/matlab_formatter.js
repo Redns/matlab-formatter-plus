@@ -3,6 +3,11 @@
 const fs = require("fs");
 
 class Formatter {
+    static cellIndentPatterns = new Map([
+        ["[", /(\s*)((\S.*)?)(\[.*$)/],
+        ["{", /(\s*)((\S.*)?)(\{.*$)/],
+    ]);
+
     constructor(indentWidth, separateBlocks, indentMode, operatorSep, matrixIndent) {
         this.ilvl = 0;
         this.istep = [];
@@ -70,8 +75,21 @@ class Formatter {
         return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     }
 
+    static getLeadingKeyword(line) {
+        let start = 0;
+        while (start < line.length && /\s/.test(line[start])) {
+            start += 1;
+        }
+        let end = start;
+        while (end < line.length && /[A-Za-z_]/.test(line[end])) {
+            end += 1;
+        }
+        return line.slice(start, end);
+    }
+
     cellIndent(line, cellOpen, cellClose, indent) {
-        const pattern = new RegExp(`(\\s*)((\\S.*)?)(${Formatter.escapeRegex(cellOpen)}.*$)`);
+        const pattern = Formatter.cellIndentPatterns.get(cellOpen)
+            || new RegExp(`(\\s*)((\\S.*)?)(${Formatter.escapeRegex(cellOpen)}.*$)`);
         line = this.cleanLineFromStringsAndComments(line);
         const opened = countOccurrences(line, cellOpen) - countOccurrences(line, cellClose);
         if (opened > 0) {
@@ -240,27 +258,63 @@ class Formatter {
     }
 
     classifyBlockStart(line) {
-        if (Formatter.ctrl1line.test(line)) {
+        switch (Formatter.getLeadingKeyword(line)) {
+        case "if":
+        case "while":
+        case "for":
+        case "try":
+            if (Formatter.ctrl1line.test(line)) {
+                return null;
+            }
+            return Formatter.ctrlstart.test(line) ? "control" : null;
+        case "parfor":
+        case "spmd":
+            return Formatter.ctrlstart.test(line) ? "control" : null;
+        case "methods":
+        case "properties":
+        case "events":
+        case "arguments":
+        case "enumeration":
+            return Formatter.ctrlstartDecl.test(line) ? "control" : null;
+        case "switch":
+            return Formatter.ctrlstart2.test(line) ? "control" : null;
+        case "function":
+        case "classdef":
+            return Formatter.fcnstart.test(line) ? "function" : null;
+        default:
             return null;
         }
-        if (Formatter.fcnstart.test(line)) {
-            return "function";
-        }
-        if (Formatter.ctrlstart.test(line) || Formatter.ctrlstartDecl.test(line) || Formatter.ctrlstart2.test(line)) {
-            return "control";
-        }
-        return null;
     }
 
     classifyBlockContinuation(line) {
-        if (Formatter.ctrlcont.test(line)) {
-            return "control";
+        switch (Formatter.getLeadingKeyword(line)) {
+        case "elseif":
+        case "else":
+        case "case":
+        case "otherwise":
+        case "catch":
+            if (Formatter.ctrlcont.test(line)) {
+                return "control";
+            }
+            break;
+        default:
+            break;
         }
         return null;
     }
 
     isBlockEnd(line) {
-        return Formatter.ctrlend.test(line);
+        switch (Formatter.getLeadingKeyword(line)) {
+        case "end":
+        case "endfunction":
+        case "endif":
+        case "endwhile":
+        case "endfor":
+        case "endswitch":
+            return Formatter.ctrlend.test(line);
+        default:
+            return false;
+        }
     }
 
     formatLine(line) {
@@ -271,15 +325,17 @@ class Formatter {
             return [0, this.indent() + line.trim()];
         }
 
-        if (Formatter.linecomment.test(line)) {
+        const leadingKeyword = Formatter.getLeadingKeyword(line);
+
+        if (line.trimStart().startsWith("%")) {
             this.islinecomment = 2;
         } else {
             this.islinecomment = Math.max(0, this.islinecomment - 1);
         }
 
-        if (Formatter.blockcommentOpen.test(line)) {
+        if (/^\s*%\{\s*$/.test(line)) {
             this.isblockcomment = Number.POSITIVE_INFINITY;
-        } else if (Formatter.blockcommentClose.test(line)) {
+        } else if (/^\s*%\}\s*$/.test(line)) {
             this.isblockcomment = 1;
         } else {
             this.isblockcomment = Math.max(0, this.isblockcomment - 1);
@@ -314,90 +370,145 @@ class Formatter {
             return [0, this.indent() + line.trim()];
         }
 
-        let match = line.match(Formatter.ctrlIgnore);
-        if (match) {
-            return [0, this.indent() + line.trim()];
-        }
+        let match = null;
 
-        match = line.match(Formatter.ctrl1line);
-        if (match) {
-            return [
-                0,
-                this.indent()
-                + match[2]
-                + " "
-                + this.formatPart(match[3]).trim()
-                + " "
-                + match[4]
-                + " "
-                + this.formatPart(match[6]).trim(),
-            ];
-        }
-
-        match = line.match(Formatter.fcnstart);
-        if (match) {
-            let offset = this.indentMode;
-            this.fstep.push(1);
-            if (this.indentMode === -1) {
-                offset = Number(this.fstep.length > 1);
+        if (leadingKeyword === "import" || leadingKeyword === "clear" || leadingKeyword === "clearvars") {
+            match = line.match(Formatter.ctrlIgnore);
+            if (match) {
+                return [0, this.indent() + line.trim()];
             }
-            this.currentBlockStartType = "function";
-            return [offset, this.indent() + match[2] + " " + this.formatPart(match[3]).trim()];
         }
 
-        match = line.match(Formatter.ctrlstart);
-        if (match) {
-            this.istep.push(1);
-            this.currentBlockStartType = "control";
-            return [1, this.indent() + match[2] + " " + this.formatPart(match[3]).trim()];
-        }
-
-        match = line.match(Formatter.ctrlstartDecl);
-        if (match) {
-            this.istep.push(1);
-            this.currentBlockStartType = "control";
-            return [1, this.indent() + match[2] + this.formatPart(match[3]).replace(/\s+$/, "")];
-        }
-
-        match = line.match(Formatter.ctrlstart2);
-        if (match) {
-            this.istep.push(2);
-            this.currentBlockStartType = "control";
-            return [2, this.indent() + match[2] + " " + this.formatPart(match[3]).trim()];
-        }
-
-        match = line.match(Formatter.ctrlcont);
-        if (match) {
-            return [0, this.indent(-this.iwidth) + match[2] + " " + this.formatPart(match[3]).trim()];
-        }
-
-        match = line.match(Formatter.ctrlend);
-        if (match) {
-            let step;
-            if (this.istep.length > 0) {
-                step = this.istep.pop();
-            } else if (this.fstep.length > 0) {
-                step = this.fstep.pop();
-            } else {
-                step = 0;
+        switch (leadingKeyword) {
+        case "if":
+        case "while":
+        case "for":
+        case "try":
+            match = line.match(Formatter.ctrl1line);
+            if (match) {
+                return [
+                    0,
+                    this.indent()
+                    + match[2]
+                    + " "
+                    + this.formatPart(match[3]).trim()
+                    + " "
+                    + match[4]
+                    + " "
+                    + this.formatPart(match[6]).trim(),
+                ];
             }
-            return [
-                -step,
-                this.indent(-step * this.iwidth) + match[2] + " " + this.formatPart(match[4]).trim(),
-            ];
+            break;
+        default:
+            break;
+        }
+
+        switch (leadingKeyword) {
+        case "function":
+        case "classdef":
+            match = line.match(Formatter.fcnstart);
+            if (match) {
+                let offset = this.indentMode;
+                this.fstep.push(1);
+                if (this.indentMode === -1) {
+                    offset = Number(this.fstep.length > 1);
+                }
+                this.currentBlockStartType = "function";
+                return [offset, this.indent() + match[2] + " " + this.formatPart(match[3]).trim()];
+            }
+            break;
+        case "if":
+        case "while":
+        case "for":
+        case "parfor":
+        case "try":
+        case "spmd":
+            match = line.match(Formatter.ctrlstart);
+            if (match) {
+                this.istep.push(1);
+                this.currentBlockStartType = "control";
+                return [1, this.indent() + match[2] + " " + this.formatPart(match[3]).trim()];
+            }
+            break;
+        case "methods":
+        case "properties":
+        case "events":
+        case "arguments":
+        case "enumeration":
+            match = line.match(Formatter.ctrlstartDecl);
+            if (match) {
+                this.istep.push(1);
+                this.currentBlockStartType = "control";
+                return [1, this.indent() + match[2] + this.formatPart(match[3]).replace(/\s+$/, "")];
+            }
+            break;
+        case "switch":
+            match = line.match(Formatter.ctrlstart2);
+            if (match) {
+                this.istep.push(2);
+                this.currentBlockStartType = "control";
+                return [2, this.indent() + match[2] + " " + this.formatPart(match[3]).trim()];
+            }
+            break;
+        case "elseif":
+        case "else":
+        case "case":
+        case "otherwise":
+        case "catch":
+            match = line.match(Formatter.ctrlcont);
+            if (match) {
+                return [0, this.indent(-this.iwidth) + match[2] + " " + this.formatPart(match[3]).trim()];
+            }
+            break;
+        case "end":
+        case "endfunction":
+        case "endif":
+        case "endwhile":
+        case "endfor":
+        case "endswitch":
+            match = line.match(Formatter.ctrlend);
+            if (match) {
+                let step;
+                if (this.istep.length > 0) {
+                    step = this.istep.pop();
+                } else if (this.fstep.length > 0) {
+                    step = this.fstep.pop();
+                } else {
+                    step = 0;
+                }
+                return [
+                    -step,
+                    this.indent(-step * this.iwidth) + match[2] + " " + this.formatPart(match[4]).trim(),
+                ];
+            }
+            break;
+        default:
+            break;
         }
 
         const tmpMatrix = this.matrix;
-        if (this.multilinematrix(line) || tmpMatrix) {
-            return [0, this.indent(tmpMatrix) + this.formatPart(line).trim()];
+        if (tmpMatrix || line.includes("[") || line.includes("]")) {
+            if (this.multilinematrix(line) || tmpMatrix) {
+                return [0, this.indent(tmpMatrix) + this.formatPart(line).trim()];
+            }
         }
 
         const tmpCell = this.cell;
-        if (this.cellarray(line) || tmpCell) {
-            return [0, this.indent(tmpCell) + this.formatPart(line).trim()];
+        if (tmpCell || line.includes("{") || line.includes("}")) {
+            if (this.cellarray(line) || tmpCell) {
+                return [0, this.indent(tmpCell) + this.formatPart(line).trim()];
+            }
         }
 
         return [0, this.indent() + this.formatPart(line).trim()];
+    }
+    getLineInfo(line) {
+        return {
+            isBlank: /^\s*$/.test(line),
+            blockStartType: this.classifyBlockStart(line),
+            blockContinuationType: this.classifyBlockContinuation(line),
+            isBlockEnd: this.isBlockEnd(line),
+        };
     }
 
     formatText(text, start, end) {
@@ -405,9 +516,21 @@ class Formatter {
         const normalizedEnd = end == null ? allLines.length : end;
         let rlines = allLines.slice(start - 1, normalizedEnd);
         const wlines = [];
+        let lineInfos = [];
+        let nextNonBlankInfos = [];
 
         if (rlines.length === 0) {
             rlines = [""];
+        }
+
+        lineInfos = rlines.map((line) => this.getLineInfo(line));
+        nextNonBlankInfos = new Array(rlines.length).fill(null);
+        let nextNonBlankInfo = null;
+        for (let idx = rlines.length - 1; idx >= 0; idx -= 1) {
+            nextNonBlankInfos[idx] = nextNonBlankInfo;
+            if (!lineInfos[idx].isBlank) {
+                nextNonBlankInfo = lineInfos[idx];
+            }
         }
 
         for (const line of allLines.slice(0, start - 1)) {
@@ -427,21 +550,13 @@ class Formatter {
 
         for (let idx = 0; idx < rlines.length; idx += 1) {
             const line = rlines[idx];
-            let nextBlockStartType = null;
-            let nextBlockContinuationType = null;
-            let nextLineIsBlockEnd = false;
+            const lineInfo = lineInfos[idx];
+            const nextInfo = nextNonBlankInfos[idx];
+            const nextBlockStartType = nextInfo ? nextInfo.blockStartType : null;
+            const nextBlockContinuationType = nextInfo ? nextInfo.blockContinuationType : null;
+            const nextLineIsBlockEnd = nextInfo ? nextInfo.isBlockEnd : false;
 
-            for (const nextLine of rlines.slice(idx + 1)) {
-                if (/^\s*$/.test(nextLine)) {
-                    continue;
-                }
-                nextBlockStartType = this.classifyBlockStart(nextLine);
-                nextBlockContinuationType = this.classifyBlockContinuation(nextLine);
-                nextLineIsBlockEnd = this.isBlockEnd(nextLine);
-                break;
-            }
-
-            if (/^\s*$/.test(line)) {
+            if (lineInfo.isBlank) {
                 if (nextBlockContinuationType !== null) {
                     continue;
                 }
@@ -474,7 +589,7 @@ class Formatter {
             }
 
             const [offset, formattedLine] = this.formatLine(line);
-            const currentBlockContinuationType = this.classifyBlockContinuation(line);
+            const currentBlockContinuationType = lineInfo.blockContinuationType;
             this.ilvl = Math.max(0, this.ilvl + offset);
 
             if (
