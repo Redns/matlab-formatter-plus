@@ -50,6 +50,8 @@ class MatlabFormatter {
                     allowBlankLineBetweenConsecutiveBlockEnds: config.get('allowBlankLineBetweenConsecutiveBlockEnds'),
                     squeezeBlankAfterControlBlocks: config.get('squeezeBlankAfterControlBlocks'),
                     squeezeBlankAfterFunctionBlocks: config.get('squeezeBlankAfterFunctionBlocks'),
+                    autoAppendSemicolon: config.get('autoAppendSemicolon'),
+                    removeUnnecessarySemicolons: config.get('removeUnnecessarySemicolons'),
                     startLine: range.start.line + 1,
                     endLine: range.end.line + 1,
                 });

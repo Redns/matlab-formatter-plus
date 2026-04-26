@@ -31,6 +31,8 @@ class Formatter {
         this.allowBlankLineBetweenConsecutiveBlockEnds = false;
         this.squeezeBlankAfterControlBlocks = false;
         this.squeezeBlankAfterFunctionBlocks = false;
+        this.autoAppendSemicolon = false;
+        this.removeUnnecessarySemicolons = false;
         this.currentBlockStartType = null;
     }
 
@@ -253,6 +255,89 @@ class Formatter {
         return part;
     }
 
+    appendSemicolonIfNeeded(line) {
+        if (!this.autoAppendSemicolon) {
+            return line;
+        }
+
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === "...") {
+            return line;
+        }
+
+        const cleaned = this.cleanLineFromStringsAndComments(line);
+        const codeOnly = cleaned.trimEnd();
+        if (!codeOnly || codeOnly.endsWith(";") || codeOnly.endsWith("...")) {
+            return line;
+        }
+
+        const commentIndex = this.findCommentIndex(line);
+        if (commentIndex === -1) {
+            return `${line};`;
+        }
+
+        const beforeComment = line.slice(0, commentIndex).replace(/\s+$/, "");
+        const comment = line.slice(commentIndex);
+        if (!beforeComment) {
+            return line;
+        }
+        return `${beforeComment}; ${comment.trimStart()}`;
+    }
+
+    findCommentIndex(line) {
+        let inSingleQuote = false;
+        let inDoubleQuote = false;
+        for (let idx = 0; idx < line.length; idx += 1) {
+            const ch = line[idx];
+            const next = line[idx + 1];
+
+            if (!inDoubleQuote && ch === "'") {
+                if (inSingleQuote && next === "'") {
+                    idx += 1;
+                    continue;
+                }
+                inSingleQuote = !inSingleQuote;
+                continue;
+            }
+
+            if (!inSingleQuote && ch === "\"") {
+                inDoubleQuote = !inDoubleQuote;
+                continue;
+            }
+
+            if (!inSingleQuote && !inDoubleQuote && ch === "%") {
+                return idx;
+            }
+        }
+        return -1;
+    }
+
+    formatStatementLine(line) {
+        return this.appendSemicolonIfNeeded(this.indent() + this.formatPart(line).trim());
+    }
+
+    removeTrailingSemicolonIfNeeded(line) {
+        if (!this.removeUnnecessarySemicolons) {
+            return line;
+        }
+
+        const commentIndex = this.findCommentIndex(line);
+        if (commentIndex === -1) {
+            return line.replace(/;\s*$/, "");
+        }
+
+        const beforeComment = line.slice(0, commentIndex).replace(/\s+$/, "");
+        const comment = line.slice(commentIndex).trimStart();
+        if (!beforeComment.endsWith(";")) {
+            return line;
+        }
+        return `${beforeComment.slice(0, -1)} ${comment}`.replace(/\s+$/, "");
+    }
+
+    formatStructuralLine(line) {
+        return this.removeTrailingSemicolonIfNeeded(line);
+    }
+
     indent(addspaces = 0) {
         return " ".repeat(Math.max(0, (this.ilvl + this.continueline) * this.iwidth + addspaces));
     }
@@ -325,7 +410,16 @@ class Formatter {
             return [0, this.indent() + line.trim()];
         }
 
-        const leadingKeyword = Formatter.getLeadingKeyword(line);
+        let leadingKeyword = Formatter.getLeadingKeyword(line);
+        if (this.removeUnnecessarySemicolons && [
+            "function", "classdef", "if", "while", "for", "parfor", "try", "spmd",
+            "switch", "methods", "properties", "events", "arguments", "enumeration",
+            "elseif", "else", "case", "otherwise", "catch",
+            "end", "endfunction", "endif", "endwhile", "endfor", "endswitch",
+        ].includes(leadingKeyword)) {
+            line = this.removeTrailingSemicolonIfNeeded(line);
+            leadingKeyword = Formatter.getLeadingKeyword(line);
+        }
 
         if (line.trimStart().startsWith("%")) {
             this.islinecomment = 2;
@@ -375,7 +469,8 @@ class Formatter {
         if (leadingKeyword === "import" || leadingKeyword === "clear" || leadingKeyword === "clearvars") {
             match = line.match(Formatter.ctrlIgnore);
             if (match) {
-                return [0, this.indent() + line.trim()];
+                const formatted = this.indent() + line.trim();
+                return [0, leadingKeyword === "import" ? formatted : this.appendSemicolonIfNeeded(formatted)];
             }
         }
 
@@ -388,14 +483,14 @@ class Formatter {
             if (match) {
                 return [
                     0,
-                    this.indent()
+                    this.formatStructuralLine(this.indent()
                     + match[2]
                     + " "
                     + this.formatPart(match[3]).trim()
                     + " "
                     + match[4]
                     + " "
-                    + this.formatPart(match[6]).trim(),
+                    + this.formatPart(match[6]).trim()),
                 ];
             }
             break;
@@ -414,7 +509,7 @@ class Formatter {
                     offset = Number(this.fstep.length > 1);
                 }
                 this.currentBlockStartType = "function";
-                return [offset, this.indent() + match[2] + " " + this.formatPart(match[3]).trim()];
+                return [offset, this.formatStructuralLine(this.indent() + match[2] + " " + this.formatPart(match[3]).trim())];
             }
             break;
         case "if":
@@ -427,7 +522,7 @@ class Formatter {
             if (match) {
                 this.istep.push(1);
                 this.currentBlockStartType = "control";
-                return [1, this.indent() + match[2] + " " + this.formatPart(match[3]).trim()];
+                return [1, this.formatStructuralLine(this.indent() + match[2] + " " + this.formatPart(match[3]).trim())];
             }
             break;
         case "methods":
@@ -439,7 +534,7 @@ class Formatter {
             if (match) {
                 this.istep.push(1);
                 this.currentBlockStartType = "control";
-                return [1, this.indent() + match[2] + this.formatPart(match[3]).replace(/\s+$/, "")];
+                return [1, this.formatStructuralLine(this.indent() + match[2] + this.formatPart(match[3]).replace(/\s+$/, ""))];
             }
             break;
         case "switch":
@@ -447,7 +542,7 @@ class Formatter {
             if (match) {
                 this.istep.push(2);
                 this.currentBlockStartType = "control";
-                return [2, this.indent() + match[2] + " " + this.formatPart(match[3]).trim()];
+                return [2, this.formatStructuralLine(this.indent() + match[2] + " " + this.formatPart(match[3]).trim())];
             }
             break;
         case "elseif":
@@ -457,7 +552,7 @@ class Formatter {
         case "catch":
             match = line.match(Formatter.ctrlcont);
             if (match) {
-                return [0, this.indent(-this.iwidth) + match[2] + " " + this.formatPart(match[3]).trim()];
+                return [0, this.formatStructuralLine(this.indent(-this.iwidth) + match[2] + " " + this.formatPart(match[3]).trim())];
             }
             break;
         case "end":
@@ -478,7 +573,7 @@ class Formatter {
                 }
                 return [
                     -step,
-                    this.indent(-step * this.iwidth) + match[2] + " " + this.formatPart(match[4]).trim(),
+                    this.formatStructuralLine(this.indent(-step * this.iwidth) + match[2] + " " + this.formatPart(match[4]).trim()),
                 ];
             }
             break;
@@ -488,19 +583,25 @@ class Formatter {
 
         const tmpMatrix = this.matrix;
         if (tmpMatrix || line.includes("[") || line.includes("]")) {
-            if (this.multilinematrix(line) || tmpMatrix) {
-                return [0, this.indent(tmpMatrix) + this.formatPart(line).trim()];
+            const matrixDelta = this.multilinematrix(line);
+            if (matrixDelta || tmpMatrix) {
+                const formatted = this.indent(tmpMatrix) + this.formatPart(line).trim();
+                const matrixStillOpen = this.matrix > 0;
+                return [0, matrixStillOpen ? formatted : this.appendSemicolonIfNeeded(formatted)];
             }
         }
 
         const tmpCell = this.cell;
         if (tmpCell || line.includes("{") || line.includes("}")) {
-            if (this.cellarray(line) || tmpCell) {
-                return [0, this.indent(tmpCell) + this.formatPart(line).trim()];
+            const cellDelta = this.cellarray(line);
+            if (cellDelta || tmpCell) {
+                const formatted = this.indent(tmpCell) + this.formatPart(line).trim();
+                const cellStillOpen = this.cell > 0;
+                return [0, cellStillOpen ? formatted : this.appendSemicolonIfNeeded(formatted)];
             }
         }
 
-        return [0, this.indent() + this.formatPart(line).trim()];
+        return [0, this.formatStatementLine(line)];
     }
     getLineInfo(line) {
         return {
@@ -663,6 +764,8 @@ function normalizeOptions(options = {}) {
         allowBlankLineBetweenConsecutiveBlockEnds: options.allowBlankLineBetweenConsecutiveBlockEnds ?? false,
         squeezeBlankAfterControlBlocks: options.squeezeBlankAfterControlBlocks ?? false,
         squeezeBlankAfterFunctionBlocks: options.squeezeBlankAfterFunctionBlocks ?? false,
+        autoAppendSemicolon: options.autoAppendSemicolon ?? false,
+        removeUnnecessarySemicolons: options.removeUnnecessarySemicolons ?? false,
     };
 }
 
@@ -686,6 +789,8 @@ function createFormatter(options = {}) {
     formatter.allowBlankLineBetweenConsecutiveBlockEnds = normalized.allowBlankLineBetweenConsecutiveBlockEnds;
     formatter.squeezeBlankAfterControlBlocks = normalized.squeezeBlankAfterControlBlocks;
     formatter.squeezeBlankAfterFunctionBlocks = normalized.squeezeBlankAfterFunctionBlocks;
+    formatter.autoAppendSemicolon = normalized.autoAppendSemicolon;
+    formatter.removeUnnecessarySemicolons = normalized.removeUnnecessarySemicolons;
 
     return { formatter, options: normalized };
 }

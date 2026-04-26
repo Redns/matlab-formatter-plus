@@ -1,5 +1,15 @@
 # Change Log
 
+### 2.12.4
+features:
+* add option `autoAppendSemicolon` to automatically append `;` to eligible statements and suppress MATLAB output
+* add option `removeUnnecessarySemicolons` to remove trailing `;` from structure-only lines such as `function`, `if`, `else`, `catch`, and `end`
+
+bugfixes:
+* keep `import` statements exempt from auto-appended semicolons
+* keep control-flow, multiline matrix/cell openings, and continued lines safe while auto-appending semicolons
+* preserve trailing comments when inserting an automatic semicolon
+
 ### 2.12.2
 performance:
 * reduce repeated look-ahead work when scanning blank lines and nearby control-flow structure

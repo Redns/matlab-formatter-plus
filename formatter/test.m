@@ -17,7 +17,7 @@ function foo = myFun(a, b, c)
     % bla
     for k = 1:N
         % ADD INDENTATION AFTER LINE BREAK
-        k++
+        k=k+1
 
         % comment
         t = a * k ...
@@ -41,9 +41,5 @@ function foo = myFun(a, b, c)
     cellWithLongName = {1
                         [2 3]'
                         {1 M 'three'}};
-
-    % exclude the next N (default=1) nonempty lines of code from formatting
-    % formatter ignore N
-    this=a   *very*  ill ^ formated+    loc
 
 end
