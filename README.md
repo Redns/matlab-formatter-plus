@@ -25,7 +25,7 @@
 | ![sample](https://image.krins.cloud/47a1f66e0e9c983ecd1d310e5bde9018.gif) | ![sample](https://image.krins.cloud/57fc9cfeeb4b108f0eca7ea88859bb0c.gif) | ![sample](https://image.krins.cloud/0eb66a084a5eb2ace1e4ecad06d5e262.gif) |
 |              **squeezeBlankAfterControlBlocks**              |             **squeezeBlankAfterFunctionBlocks**              |                   **autoAppendSemicolon**                    |
 |           强制移除控制语句（if、for）后紧跟的空行            |          强制移除 function 和 classdef 后紧跟的空行          |   为符合条件的语句末尾添加分号，<br />以抑制命令行窗口输出   |
-| ![sample](https://image.krins.cloud/c0e4c262075f72be3eb330cb23366f75.gif) |              ![sample](D:\Downloads\sample.gif)              | ![sample](https://image.krins.cloud/e62963eae10fb74309bacfb2c42bfc04.gif) |
+| ![sample](https://image.krins.cloud/c0e4c262075f72be3eb330cb23366f75.gif) | ![sample](https://image.krins.cloud/203128b4c872863daef5b1c90452d2cd.gif) | ![sample](https://image.krins.cloud/e62963eae10fb74309bacfb2c42bfc04.gif) |
 |               **removeUnnecessarySemicolons**                |                                                              |                                                              |
 | 为 if、elseif、else、catch、function、classdef 和 end 语句<br />去除不必要的分号 |                                                              |                                                              |
 | ![sample](https://image.krins.cloud/437c83b44ca0df559d45fb4363db1ce2.gif) |                                                              |                                                              |
