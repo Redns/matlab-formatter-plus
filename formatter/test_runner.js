@@ -142,6 +142,37 @@ function testRemoveUnnecessarySemicolonsPreservesStatementSemicolons() {
     ].join("\n"));
 }
 
+function testEndKeywordInsideIndexDoesNotTriggerInlineControlFlow() {
+    const input = [
+        "for i = 1:22",
+        "",
+        "    if i > 3 && i < a(end - 1)",
+        "        break",
+        "    else",
+        "        continue",
+        "    end",
+        "",
+        "end",
+    ].join("\n");
+    const output = formatText(input, {
+        startLine: 1,
+        endLine: 999999,
+        autoAppendSemicolon: true,
+        removeUnnecessarySemicolons: true,
+        separateBlocks: false,
+    });
+
+    assert.strictEqual(output, [
+        "for i = 1:22",
+        "    if i > 3 && i < a(end - 1)",
+        "        break;",
+        "    else",
+        "        continue;",
+        "    end",
+        "end",
+    ].join("\n"));
+}
+
 function run() {
     testDefaultFixtureFormats();
     testAutoAppendSemicolonForRegularStatements();
@@ -150,6 +181,7 @@ function run() {
     testAutoAppendSemicolonSkipsImportStatements();
     testRemoveUnnecessarySemicolonsForStructuralLines();
     testRemoveUnnecessarySemicolonsPreservesStatementSemicolons();
+    testEndKeywordInsideIndexDoesNotTriggerInlineControlFlow();
     console.log("formatter ok");
 }
 

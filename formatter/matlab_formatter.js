@@ -36,7 +36,7 @@ class Formatter {
         this.currentBlockStartType = null;
     }
 
-    static ctrl1line = /^(\s*)(if|while|for|try)(\W\s*\S.*\W)((end|endif|endwhile|endfor);?)(\s+\S.*|\s*$)/;
+    static ctrl1line = /^(\s*)(if|while|for|try)(.*?[;,].*?)(\b(end|endif|endwhile|endfor)\b;?)(\s+\S.*|\s*$)/;
     static fcnstart = /^(\s*)(function|classdef)\s*(\W\s*\S.*|\s*$)/;
     static ctrlstart = /^(\s*)(if|while|for|parfor|try|spmd)\b\s*(\W\s*\S.*|\s*$)/;
     static ctrlstartDecl = /^(\s*)(methods|properties|events|arguments|enumeration)\b(\s*(\([^%]*\))?\s*(%.*)?\s*$)/;

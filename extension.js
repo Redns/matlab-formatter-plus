@@ -19,9 +19,10 @@
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 const vscode = require("vscode");
+const languageConfiguration = require("./language-configuration.json");
 const { formatText } = require("./formatter/matlab_formatter");
 const fullRange = doc => doc.validateRange(new vscode.Range(0, 0, Number.MAX_VALUE, Number.MAX_VALUE));
-const MODE = { language: 'matlab' };
+const SUPPORTED_LANGUAGES = ["matlab", "octave"];
 const CONFIG_SECTION = 'matlab-formatter-plus';
 
 class MatlabFormatter {
@@ -83,8 +84,11 @@ class MatlabDocumentRangeFormatter {
 
 function activate(context) {
     const formatter = new MatlabDocumentRangeFormatter();
-    context.subscriptions.push(vscode.languages.registerDocumentFormattingEditProvider(MODE, formatter));
-    context.subscriptions.push(vscode.languages.registerDocumentRangeFormattingEditProvider(MODE, formatter));
+    for (const language of SUPPORTED_LANGUAGES) {
+        context.subscriptions.push(vscode.languages.registerDocumentFormattingEditProvider({ language }, formatter));
+        context.subscriptions.push(vscode.languages.registerDocumentRangeFormattingEditProvider({ language }, formatter));
+        context.subscriptions.push(vscode.languages.setLanguageConfiguration(language, languageConfiguration));
+    }
 }
 exports.activate = activate;
 // this method is called when your extension is deactivated
