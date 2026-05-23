@@ -33,6 +33,7 @@ class Formatter {
         this.squeezeBlankAfterFunctionBlocks = false;
         this.autoAppendSemicolon = false;
         this.removeUnnecessarySemicolons = false;
+        this.forceSplitStatements = false;
         this.currentBlockStartType = null;
     }
 
@@ -338,6 +339,90 @@ class Formatter {
         return this.removeTrailingSemicolonIfNeeded(line);
     }
 
+    splitStatementLine(line) {
+        if (!this.forceSplitStatements || !line || /^\s*%/.test(line)) {
+            return [line];
+        }
+
+        const segments = [];
+        const baseIndent = (line.match(/^\s*/) || [""])[0];
+        let current = "";
+        let squareDepth = 0;
+        let parenDepth = 0;
+        let braceDepth = 0;
+        let inSingleQuote = false;
+        let inDoubleQuote = false;
+
+        for (let idx = 0; idx < line.length; idx += 1) {
+            const ch = line[idx];
+            const next = line[idx + 1];
+
+            if (!inDoubleQuote && ch === "'") {
+                current += ch;
+                if (inSingleQuote && next === "'") {
+                    current += next;
+                    idx += 1;
+                    continue;
+                }
+                inSingleQuote = !inSingleQuote;
+                continue;
+            }
+
+            if (!inSingleQuote && ch === "\"") {
+                inDoubleQuote = !inDoubleQuote;
+                current += ch;
+                continue;
+            }
+
+            if (!inSingleQuote && !inDoubleQuote) {
+                if (ch === "%") {
+                    current += line.slice(idx);
+                    break;
+                }
+                if (ch === "[") {
+                    squareDepth += 1;
+                } else if (ch === "]") {
+                    squareDepth = Math.max(0, squareDepth - 1);
+                } else if (ch === "(") {
+                    parenDepth += 1;
+                } else if (ch === ")") {
+                    parenDepth = Math.max(0, parenDepth - 1);
+                } else if (ch === "{") {
+                    braceDepth += 1;
+                } else if (ch === "}") {
+                    braceDepth = Math.max(0, braceDepth - 1);
+                }
+            }
+
+            current += ch;
+
+            if (
+                ch === ";"
+                && !inSingleQuote
+                && !inDoubleQuote
+                && squareDepth === 0
+                && parenDepth === 0
+                && braceDepth === 0
+            ) {
+                const remainder = line.slice(idx + 1);
+                const remainderTrimmed = remainder.trimStart();
+                if (remainderTrimmed && !remainderTrimmed.startsWith("%")) {
+                    segments.push(current.trimEnd());
+                    current = baseIndent;
+                    while (idx + 1 < line.length && /\s/.test(line[idx + 1])) {
+                        idx += 1;
+                    }
+                }
+            }
+        }
+
+        if (current.trim().length > 0) {
+            segments.push(current.trimEnd());
+        }
+
+        return segments.length > 0 ? segments : [line];
+    }
+
     indent(addspaces = 0) {
         return " ".repeat(Math.max(0, (this.ilvl + this.continueline) * this.iwidth + addspaces));
     }
@@ -624,6 +709,10 @@ class Formatter {
             rlines = [""];
         }
 
+        if (this.forceSplitStatements) {
+            rlines = rlines.flatMap((line) => this.splitStatementLine(line));
+        }
+
         lineInfos = rlines.map((line) => this.getLineInfo(line));
         nextNonBlankInfos = new Array(rlines.length).fill(null);
         let nextNonBlankInfo = null;
@@ -766,6 +855,7 @@ function normalizeOptions(options = {}) {
         squeezeBlankAfterFunctionBlocks: options.squeezeBlankAfterFunctionBlocks ?? false,
         autoAppendSemicolon: options.autoAppendSemicolon ?? false,
         removeUnnecessarySemicolons: options.removeUnnecessarySemicolons ?? false,
+        forceSplitStatements: options.forceSplitStatements ?? false,
     };
 }
 
@@ -791,6 +881,7 @@ function createFormatter(options = {}) {
     formatter.squeezeBlankAfterFunctionBlocks = normalized.squeezeBlankAfterFunctionBlocks;
     formatter.autoAppendSemicolon = normalized.autoAppendSemicolon;
     formatter.removeUnnecessarySemicolons = normalized.removeUnnecessarySemicolons;
+    formatter.forceSplitStatements = normalized.forceSplitStatements;
 
     return { formatter, options: normalized };
 }

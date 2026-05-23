@@ -22,6 +22,11 @@ const vscode = require("vscode");
 const languageConfiguration = require("./language-configuration.json");
 const { formatText } = require("./formatter/matlab_formatter");
 const fullRange = doc => doc.validateRange(new vscode.Range(0, 0, Number.MAX_VALUE, Number.MAX_VALUE));
+const fullLineRange = (doc, range) => {
+    const start = new vscode.Position(range.start.line, 0);
+    const end = doc.lineAt(range.end.line).range.end;
+    return doc.validateRange(new vscode.Range(start, end));
+};
 const SUPPORTED_LANGUAGES = ["matlab", "octave"];
 const CONFIG_SECTION = 'matlab-formatter-plus';
 
@@ -53,10 +58,11 @@ class MatlabFormatter {
                     squeezeBlankAfterFunctionBlocks: config.get('squeezeBlankAfterFunctionBlocks'),
                     autoAppendSemicolon: config.get('autoAppendSemicolon'),
                     removeUnnecessarySemicolons: config.get('removeUnnecessarySemicolons'),
+                    forceSplitStatements: config.get('forceSplitStatements'),
                     startLine: range.start.line + 1,
                     endLine: range.end.line + 1,
                 });
-                let toreplace = document.validateRange(new vscode.Range(range.start.line, 0, range.end.line + 1, 0));
+                let toreplace = fullLineRange(document, range);
                 var edit = [vscode.TextEdit.replace(toreplace, formatted)];
                 return resolve(edit);
             } catch (error) {

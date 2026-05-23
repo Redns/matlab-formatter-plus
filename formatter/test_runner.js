@@ -173,6 +173,68 @@ function testEndKeywordInsideIndexDoesNotTriggerInlineControlFlow() {
     ].join("\n"));
 }
 
+function testForceSplitStatementsBreaksTopLevelStatementsIntoLines() {
+    const input = [
+        "s = asd; e;",
+        "a;",
+        "b;",
+        "c;",
+    ].join("\n");
+    const output = formatText(input, {
+        startLine: 1,
+        endLine: 999999,
+        forceSplitStatements: true,
+        separateBlocks: false,
+    });
+
+    assert.strictEqual(output, [
+        "s = asd;",
+        "e;",
+        "a;",
+        "b;",
+        "c;",
+    ].join("\n"));
+}
+
+function testForceSplitStatementsWorksWithAutoAppendSemicolon() {
+    const input = [
+        "s = asd; e",
+        "a;",
+        "b;",
+        "c;",
+    ].join("\n");
+    const output = formatText(input, {
+        startLine: 1,
+        endLine: 999999,
+        forceSplitStatements: true,
+        autoAppendSemicolon: true,
+        separateBlocks: false,
+    });
+
+    assert.strictEqual(output, [
+        "s = asd;",
+        "e;",
+        "a;",
+        "b;",
+        "c;",
+    ].join("\n"));
+}
+
+function testForceSplitStatementsSkipsMatrixSemicolons() {
+    const input = "M = [1 2; 3 4]; e;";
+    const output = formatText(input, {
+        startLine: 1,
+        endLine: 999999,
+        forceSplitStatements: true,
+        separateBlocks: false,
+    });
+
+    assert.strictEqual(output, [
+        "M = [1 2; 3 4];",
+        "e;",
+    ].join("\n"));
+}
+
 function run() {
     testDefaultFixtureFormats();
     testAutoAppendSemicolonForRegularStatements();
@@ -182,6 +244,9 @@ function run() {
     testRemoveUnnecessarySemicolonsForStructuralLines();
     testRemoveUnnecessarySemicolonsPreservesStatementSemicolons();
     testEndKeywordInsideIndexDoesNotTriggerInlineControlFlow();
+    testForceSplitStatementsBreaksTopLevelStatementsIntoLines();
+    testForceSplitStatementsWorksWithAutoAppendSemicolon();
+    testForceSplitStatementsSkipsMatrixSemicolons();
     console.log("formatter ok");
 }
 

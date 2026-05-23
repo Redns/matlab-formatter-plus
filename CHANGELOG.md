@@ -1,5 +1,15 @@
 # Change Log
 
+### 2.12.8
+
+features:
+
+- add option `forceSplitStatements` to force multiple top-level statements on one line onto separate lines, which improves `formatOnPaste` behavior for pasted fragments like `s = asd; e;`
+
+bugfixes:
+
+- preserve line breaks during range formatting so single-line paste formatting does not merge the next MATLAB statement into the edited line
+
 ### 2.12.6
 
 features:
@@ -13,6 +23,7 @@ compatibility:
 bugfixes:
 
 - avoid treating indexing expressions like `a(end - 1)` as inline control-flow endings, which could break indentation and spacing inside surrounding `if` blocks
+- preserve line breaks during range formatting so single-line paste formatting does not merge the next MATLAB statement into the edited line
 
 ### 2.12.4
 
