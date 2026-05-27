@@ -76,6 +76,24 @@ function testAutoAppendSemicolonPreservesStringsCommentsAndMatrices() {
     ].join("\n"));
 }
 
+function testAutoAppendSemicolonIgnoresMixedQuotedAndUnquotedCommentText() {
+    const input = [
+        "switchType='TV_Cavity'; % 'a' n",
+        "switchType='TV_Cavity'; % 'a' 'n'",
+    ].join("\n");
+    const output = formatText(input, {
+        startLine: 1,
+        endLine: 999999,
+        autoAppendSemicolon: true,
+        separateBlocks: false,
+    });
+
+    assert.strictEqual(output, [
+        "switchType = 'TV_Cavity'; % 'a' n",
+        "switchType = 'TV_Cavity'; % 'a' 'n'",
+    ].join("\n"));
+}
+
 function testAutoAppendSemicolonSkipsImportStatements() {
     const input = [
         "import matlab.lang.*",
@@ -235,11 +253,99 @@ function testForceSplitStatementsSkipsMatrixSemicolons() {
     ].join("\n"));
 }
 
+function testAutoAppendSemicolonSkipsFunctionContinuationLine() {
+    const input = [
+        "function y = f(x1, ...",
+        " x2)",
+        "y = x1 + x2;",
+        "end",
+    ].join("\n");
+    const output = formatText(input, {
+        startLine: 1,
+        endLine: 999999,
+        autoAppendSemicolon: true,
+        separateBlocks: false,
+    });
+
+    assert.strictEqual(output, [
+        "function y = f(x1, ...",
+        "        x2)",
+        "    y = x1 + x2;",
+        "end",
+    ].join("\n"));
+}
+
+function testForceSplitInlineIfPreservesBodySemicolons() {
+    const output = formatText("if x, y=z; else y = h; end", {
+        startLine: 1,
+        endLine: 999999,
+        forceSplitStatements: true,
+        autoAppendSemicolon: true,
+        removeUnnecessarySemicolons: true,
+        separateBlocks: false,
+    });
+
+    assert.strictEqual(output, [
+        "if x",
+        "    y = z;",
+        "else",
+        "    y = h;",
+        "end",
+    ].join("\n"));
+}
+
+function testForceSplitInlineIfWithoutElsePreservesBodySemicolon() {
+    const output = formatText("if x, y=z;  end", {
+        startLine: 1,
+        endLine: 999999,
+        forceSplitStatements: true,
+        autoAppendSemicolon: true,
+        removeUnnecessarySemicolons: true,
+        separateBlocks: false,
+    });
+
+    assert.strictEqual(output, [
+        "if x",
+        "    y = z;",
+        "end",
+    ].join("\n"));
+}
+
+function testAutoAppendSemicolonSkipsInlineIfWhenNotSplittingStatements() {
+    const output = formatText("visStr = 'off'; if isVisible, visStr = 'on'; end", {
+        startLine: 1,
+        endLine: 999999,
+        autoAppendSemicolon: true,
+        separateBlocks: false,
+    });
+
+    assert.strictEqual(output, "visStr = 'off'; if isVisible, visStr = 'on'; end");
+}
+
+function testForceSplitInlineIfAfterRegularStatementAddsBodySemicolon() {
+    const output = formatText("visStr = 'off'; if isVisible, visStr = 'on'; end", {
+        startLine: 1,
+        endLine: 999999,
+        forceSplitStatements: true,
+        autoAppendSemicolon: true,
+        removeUnnecessarySemicolons: true,
+        separateBlocks: false,
+    });
+
+    assert.strictEqual(output, [
+        "visStr = 'off';",
+        "if isVisible",
+        "    visStr = 'on';",
+        "end",
+    ].join("\n"));
+}
+
 function run() {
     testDefaultFixtureFormats();
     testAutoAppendSemicolonForRegularStatements();
     testAutoAppendSemicolonSkipsContinuationAndExistingSemicolons();
     testAutoAppendSemicolonPreservesStringsCommentsAndMatrices();
+    testAutoAppendSemicolonIgnoresMixedQuotedAndUnquotedCommentText();
     testAutoAppendSemicolonSkipsImportStatements();
     testRemoveUnnecessarySemicolonsForStructuralLines();
     testRemoveUnnecessarySemicolonsPreservesStatementSemicolons();
@@ -247,6 +353,11 @@ function run() {
     testForceSplitStatementsBreaksTopLevelStatementsIntoLines();
     testForceSplitStatementsWorksWithAutoAppendSemicolon();
     testForceSplitStatementsSkipsMatrixSemicolons();
+    testAutoAppendSemicolonSkipsFunctionContinuationLine();
+    testForceSplitInlineIfPreservesBodySemicolons();
+    testForceSplitInlineIfWithoutElsePreservesBodySemicolon();
+    testAutoAppendSemicolonSkipsInlineIfWhenNotSplittingStatements();
+    testForceSplitInlineIfAfterRegularStatementAddsBodySemicolon();
     console.log("formatter ok");
 }
 

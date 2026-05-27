@@ -34,6 +34,8 @@ class Formatter {
         this.autoAppendSemicolon = false;
         this.removeUnnecessarySemicolons = false;
         this.forceSplitStatements = false;
+        this.functionDeclarationContinuation = false;
+        this.skipAutoSemicolonForCurrentLine = false;
         this.currentBlockStartType = null;
     }
 
@@ -266,13 +268,18 @@ class Formatter {
             return line;
         }
 
-        const cleaned = this.cleanLineFromStringsAndComments(line);
+        if (this.skipAutoSemicolonForCurrentLine || this.isInlineControlFlowLine(line)) {
+            return line;
+        }
+
+        const commentIndex = this.findCommentIndex(line);
+        const code = commentIndex === -1 ? line : line.slice(0, commentIndex);
+        const cleaned = this.cleanLineFromStringsAndComments(code);
         const codeOnly = cleaned.trimEnd();
         if (!codeOnly || codeOnly.endsWith(";") || codeOnly.endsWith("...")) {
             return line;
         }
 
-        const commentIndex = this.findCommentIndex(line);
         if (commentIndex === -1) {
             return `${line};`;
         }
@@ -317,6 +324,11 @@ class Formatter {
         return this.appendSemicolonIfNeeded(this.indent() + this.formatPart(line).trim());
     }
 
+    isInlineControlFlowLine(line) {
+        const trimmed = line.trim();
+        return /(^|[;,]\s*)(if|while|for|try)\b[\s\S]*[;,][\s\S]*\bend\b;?\s*(%.*)?$/.test(trimmed);
+    }
+
     removeTrailingSemicolonIfNeeded(line) {
         if (!this.removeUnnecessarySemicolons) {
             return line;
@@ -344,12 +356,18 @@ class Formatter {
             return [line];
         }
 
+        const inlineControlStatements = this.splitInlineControlFlowLine(line);
+        if (inlineControlStatements) {
+            return inlineControlStatements;
+        }
+
         const segments = [];
         const baseIndent = (line.match(/^\s*/) || [""])[0];
         let current = "";
         let squareDepth = 0;
         let parenDepth = 0;
         let braceDepth = 0;
+        let inlineControlDepth = 0;
         let inSingleQuote = false;
         let inDoubleQuote = false;
 
@@ -379,6 +397,12 @@ class Formatter {
                     current += line.slice(idx);
                     break;
                 }
+                const remaining = line.slice(idx);
+                if (/^(if|while|for|try)\b/.test(remaining)) {
+                    inlineControlDepth += 1;
+                } else if (/^end\b/.test(remaining) && inlineControlDepth > 0) {
+                    inlineControlDepth -= 1;
+                }
                 if (ch === "[") {
                     squareDepth += 1;
                 } else if (ch === "]") {
@@ -403,6 +427,7 @@ class Formatter {
                 && squareDepth === 0
                 && parenDepth === 0
                 && braceDepth === 0
+                && inlineControlDepth === 0
             ) {
                 const remainder = line.slice(idx + 1);
                 const remainderTrimmed = remainder.trimStart();
@@ -420,7 +445,141 @@ class Formatter {
             segments.push(current.trimEnd());
         }
 
-        return segments.length > 0 ? segments : [line];
+        if (segments.length === 0) {
+            return [line];
+        }
+
+        return segments.flatMap((segment) => {
+            if (segment === line) {
+                return [segment];
+            }
+            const nestedInlineControlStatements = this.splitInlineControlFlowLine(segment);
+            return nestedInlineControlStatements || [segment];
+        });
+    }
+
+    splitInlineControlFlowLine(line) {
+        const baseIndent = (line.match(/^\s*/) || [""])[0];
+        const trimmed = line.trim();
+        const match = trimmed.match(/^(if|while|for|try)\b([\s\S]*)$/);
+        if (!match) {
+            return null;
+        }
+
+        const tokens = this.splitTopLevelControlTokens(match[2]);
+        const endIndex = tokens.findIndex((token) => /^\s*end\b;?\s*$/.test(token));
+        if (endIndex === -1) {
+            return null;
+        }
+
+        const beforeEnd = tokens.slice(0, endIndex);
+        const afterEnd = tokens.slice(endIndex + 1).join("").trim();
+        if (afterEnd || beforeEnd.length === 0) {
+            return null;
+        }
+
+        const lines = [];
+        const headerExpression = beforeEnd.shift().trim();
+        let currentHeader = `${match[1]} ${headerExpression}`.trim();
+        let currentBody = "";
+        for (const token of beforeEnd) {
+            const trimmedToken = token.trim();
+            if (!trimmedToken) {
+                continue;
+            }
+            if (/^else\b/.test(trimmedToken)) {
+                this.pushInlineControlLines(lines, baseIndent, currentHeader, currentBody);
+                currentHeader = "else";
+                currentBody = trimmedToken.replace(/^else\b/, "").replace(/^[,;]\s*/, "");
+                continue;
+            }
+            currentBody += token;
+        }
+        this.pushInlineControlLines(lines, baseIndent, currentHeader, currentBody);
+        lines.push(`${baseIndent}end`);
+        return lines;
+    }
+
+    splitTopLevelControlTokens(text) {
+        const tokens = [];
+        let current = "";
+        let squareDepth = 0;
+        let parenDepth = 0;
+        let braceDepth = 0;
+        let inSingleQuote = false;
+        let inDoubleQuote = false;
+
+        for (let idx = 0; idx < text.length; idx += 1) {
+            const ch = text[idx];
+            const next = text[idx + 1];
+
+            if (!inDoubleQuote && ch === "'") {
+                current += ch;
+                if (inSingleQuote && next === "'") {
+                    current += next;
+                    idx += 1;
+                    continue;
+                }
+                inSingleQuote = !inSingleQuote;
+                continue;
+            }
+
+            if (!inSingleQuote && ch === "\"") {
+                inDoubleQuote = !inDoubleQuote;
+                current += ch;
+                continue;
+            }
+
+            if (!inSingleQuote && !inDoubleQuote) {
+                if (ch === "%") {
+                    current += text.slice(idx);
+                    break;
+                }
+                if (ch === "[") {
+                    squareDepth += 1;
+                } else if (ch === "]") {
+                    squareDepth = Math.max(0, squareDepth - 1);
+                } else if (ch === "(") {
+                    parenDepth += 1;
+                } else if (ch === ")") {
+                    parenDepth = Math.max(0, parenDepth - 1);
+                } else if (ch === "{") {
+                    braceDepth += 1;
+                } else if (ch === "}") {
+                    braceDepth = Math.max(0, braceDepth - 1);
+                }
+
+                if (
+                    (ch === "," || ch === ";")
+                    && squareDepth === 0
+                    && parenDepth === 0
+                    && braceDepth === 0
+                ) {
+                    tokens.push(current);
+                    current = "";
+                    continue;
+                }
+            }
+
+            current += ch;
+        }
+
+        if (current.trim()) {
+            tokens.push(current);
+        }
+        return tokens;
+    }
+
+    pushInlineControlLines(lines, baseIndent, header, body) {
+        lines.push(`${baseIndent}${header}`);
+        const formattedBody = this.formatPart(body).trim();
+        if (!formattedBody) {
+            return;
+        }
+        const bodyWithSemicolon = /;\s*(%.*)?$/.test(formattedBody)
+            ? formattedBody
+            : this.appendSemicolonIfNeeded(formattedBody);
+        lines.push(`${baseIndent}${" ".repeat(this.iwidth)}${bodyWithSemicolon}`);
     }
 
     indent(addspaces = 0) {
@@ -533,6 +692,13 @@ class Formatter {
         } else {
             this.longline = 0;
         }
+
+        const wasFunctionDeclarationContinuation = this.functionDeclarationContinuation;
+        this.skipAutoSemicolonForCurrentLine = wasFunctionDeclarationContinuation;
+        this.functionDeclarationContinuation = (
+            (leadingKeyword === "function" && this.longline === 1)
+            || (wasFunctionDeclarationContinuation && this.longline === 1)
+        );
 
         if (this.isblockcomment) {
             return [0, line.replace(/\r?\n$/, "")];

@@ -1,5 +1,15 @@
 # Change Log
 
+### 2.12.9
+
+bugfixes:
+
+- avoid adding an extra semicolon before comments that mix quoted and unquoted text, such as `% 'a' n`
+- avoid appending semicolons to continued function declarations
+- preserve statement semicolons when splitting inline `if ... else ... end` forms across multiple lines
+- avoid appending an extra trailing semicolon to inline control-flow statements when statement splitting is disabled
+- keep inline control-flow blocks together during forced statement splitting so their body statements can still receive semicolons
+
 ### 2.12.8
 
 features:
