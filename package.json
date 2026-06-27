@@ -2,7 +2,7 @@
     "name": "matlab-formatter-plus",
     "displayName": "MATLAB Formatter Plus",
     "description": "A modified edition of AffenWiesel/matlab-formatter-vscode with improved block alignment and blank-line control features",
-    "version": "2.12.10",
+    "version": "2.12.11",
     "publisher": "Krins",
     "engines": {
         "vscode": "^1.20.0"
@@ -126,6 +126,16 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Force multiple top-level statements on one line to be split into separate lines"
+                },
+                "matlab-formatter-plus.alignAssignments": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Align top-level assignment operators across consecutive compatible statements."
+                },
+                "matlab-formatter-plus.alignComments": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Align trailing percent comments across consecutive compatible statements."
                 }
             }
         },

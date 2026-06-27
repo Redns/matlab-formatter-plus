@@ -34,6 +34,8 @@ class Formatter {
         this.autoAppendSemicolon = false;
         this.removeUnnecessarySemicolons = false;
         this.forceSplitStatements = false;
+        this.alignAssignments = false;
+        this.alignComments = false;
         this.functionDeclarationContinuation = false;
         this.skipAutoSemicolonForCurrentLine = false;
         this.currentBlockStartType = null;
@@ -582,6 +584,218 @@ class Formatter {
         lines.push(`${baseIndent}${" ".repeat(this.iwidth)}${bodyWithSemicolon}`);
     }
 
+    alignFormattedLines(lines) {
+        if (!this.alignAssignments && !this.alignComments) {
+            return lines;
+        }
+
+        const aligned = lines.slice();
+        let group = [];
+
+        const flush = () => {
+            if (group.length > 0) {
+                this.alignLineGroup(aligned, group);
+                group = [];
+            }
+        };
+
+        for (let idx = 0; idx < aligned.length; idx += 1) {
+            const info = this.getAlignmentInfo(aligned[idx]);
+            if (info) {
+                group.push({ index: idx, info });
+            } else {
+                flush();
+            }
+        }
+        flush();
+
+        return aligned;
+    }
+
+    getAlignmentInfo(line) {
+        if (!line || /^\s*$/.test(line) || /^\s*%/.test(line) || this.isAlignmentBoundaryLine(line)) {
+            return null;
+        }
+
+        const commentIndex = this.findCommentIndex(line);
+        const code = commentIndex === -1 ? line : line.slice(0, commentIndex);
+        const comment = commentIndex === -1 ? null : line.slice(commentIndex).trimStart();
+        const trimmedCode = code.replace(/\s+$/, "");
+        const assignmentIndex = this.findTopLevelAssignmentIndex(trimmedCode);
+
+        if (assignmentIndex === -1 && comment === null) {
+            return null;
+        }
+
+        return {
+            code: trimmedCode,
+            comment,
+            assignmentIndex,
+        };
+    }
+
+    isAlignmentBoundaryLine(line) {
+        switch (Formatter.getLeadingKeyword(line)) {
+        case "function":
+        case "classdef":
+        case "if":
+        case "elseif":
+        case "else":
+        case "for":
+        case "parfor":
+        case "while":
+        case "switch":
+        case "case":
+        case "otherwise":
+        case "try":
+        case "catch":
+        case "end":
+        case "endfunction":
+        case "endif":
+        case "endwhile":
+        case "endfor":
+        case "endswitch":
+        case "methods":
+        case "properties":
+        case "events":
+        case "arguments":
+        case "enumeration":
+        case "spmd":
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    findTopLevelAssignmentIndex(code) {
+        let squareDepth = 0;
+        let parenDepth = 0;
+        let braceDepth = 0;
+        let inSingleQuote = false;
+        let inDoubleQuote = false;
+
+        for (let idx = 0; idx < code.length; idx += 1) {
+            const ch = code[idx];
+            const next = code[idx + 1];
+
+            if (!inDoubleQuote && ch === "'") {
+                if (inSingleQuote && next === "'") {
+                    idx += 1;
+                    continue;
+                }
+                inSingleQuote = !inSingleQuote;
+                continue;
+            }
+
+            if (!inSingleQuote && ch === "\"") {
+                inDoubleQuote = !inDoubleQuote;
+                continue;
+            }
+
+            if (inSingleQuote || inDoubleQuote) {
+                continue;
+            }
+
+            if (ch === "[") {
+                squareDepth += 1;
+                continue;
+            }
+            if (ch === "]") {
+                squareDepth = Math.max(0, squareDepth - 1);
+                continue;
+            }
+            if (ch === "(") {
+                parenDepth += 1;
+                continue;
+            }
+            if (ch === ")") {
+                parenDepth = Math.max(0, parenDepth - 1);
+                continue;
+            }
+            if (ch === "{") {
+                braceDepth += 1;
+                continue;
+            }
+            if (ch === "}") {
+                braceDepth = Math.max(0, braceDepth - 1);
+                continue;
+            }
+
+            if (ch === "=" && squareDepth === 0 && parenDepth === 0 && braceDepth === 0) {
+                const prev = previousNonSpace(code, idx - 1);
+                const nextCh = nextNonSpace(code, idx + 1);
+                if (
+                    prev
+                    && !/[<>=~!+\-*\\/\\^.]/.test(prev)
+                    && nextCh !== "="
+                ) {
+                    return idx;
+                }
+            }
+        }
+
+        return -1;
+    }
+
+    alignLineGroup(lines, group) {
+        let working = group.map(({ index, info }) => ({
+            index,
+            code: info.code,
+            comment: info.comment,
+            assignmentIndex: info.assignmentIndex,
+        }));
+
+        if (this.alignAssignments) {
+            const assignmentLines = working.filter((item) => item.assignmentIndex !== -1);
+            if (assignmentLines.length > 1) {
+                const targetAssignmentColumn = Math.max(
+                    ...assignmentLines.map((item) => item.code.slice(0, item.assignmentIndex).replace(/\s+$/, "").length)
+                );
+                working = working.map((item) => {
+                    if (item.assignmentIndex === -1) {
+                        return item;
+                    }
+                    const lhs = item.code.slice(0, item.assignmentIndex).replace(/\s+$/, "");
+                    const rhs = item.code.slice(item.assignmentIndex + 1).replace(/^\s+/, "");
+                    return {
+                        ...item,
+                        code: `${lhs}${" ".repeat(targetAssignmentColumn - lhs.length)} = ${rhs}`,
+                    };
+                });
+            }
+        }
+
+        if (this.alignComments) {
+            const commentLines = working.filter((item) => item.comment !== null && item.code.trim().length > 0);
+            if (commentLines.length > 1) {
+                const targetCommentColumn = Math.max(...commentLines.map((item) => item.code.length)) + 2;
+                working = working.map((item) => {
+                    if (item.comment === null || item.code.trim().length === 0) {
+                        return item;
+                    }
+                    return {
+                        ...item,
+                        code: `${item.code}${" ".repeat(Math.max(1, targetCommentColumn - item.code.length))}`,
+                    };
+                });
+            } else {
+                working = working.map((item) => {
+                    if (item.comment === null || item.code.trim().length === 0) {
+                        return item;
+                    }
+                    return {
+                        ...item,
+                        code: `${item.code} `,
+                    };
+                });
+            }
+        }
+
+        for (const item of working) {
+            lines[item.index] = item.comment === null ? item.code : `${item.code}${item.comment}`;
+        }
+    }
+
     indent(addspaces = 0) {
         return " ".repeat(Math.max(0, (this.ilvl + this.continueline) * this.iwidth + addspaces));
     }
@@ -989,7 +1203,7 @@ class Formatter {
             wlines.push("");
         }
 
-        return wlines.join("\n");
+        return this.alignFormattedLines(wlines).join("\n");
     }
 }
 
@@ -1002,6 +1216,24 @@ function countOccurrences(line, token) {
 
 function splitLines(text) {
     return text.replace(/\r\n/g, "\n").split("\n");
+}
+
+function previousNonSpace(text, start) {
+    for (let idx = start; idx >= 0; idx -= 1) {
+        if (!/\s/.test(text[idx])) {
+            return text[idx];
+        }
+    }
+    return "";
+}
+
+function nextNonSpace(text, start) {
+    for (let idx = start; idx < text.length; idx += 1) {
+        if (!/\s/.test(text[idx])) {
+            return text[idx];
+        }
+    }
+    return "";
 }
 
 function normalizeOptions(options = {}) {
@@ -1022,6 +1254,8 @@ function normalizeOptions(options = {}) {
         autoAppendSemicolon: options.autoAppendSemicolon ?? false,
         removeUnnecessarySemicolons: options.removeUnnecessarySemicolons ?? false,
         forceSplitStatements: options.forceSplitStatements ?? false,
+        alignAssignments: options.alignAssignments ?? false,
+        alignComments: options.alignComments ?? false,
     };
 }
 
@@ -1048,6 +1282,8 @@ function createFormatter(options = {}) {
     formatter.autoAppendSemicolon = normalized.autoAppendSemicolon;
     formatter.removeUnnecessarySemicolons = normalized.removeUnnecessarySemicolons;
     formatter.forceSplitStatements = normalized.forceSplitStatements;
+    formatter.alignAssignments = normalized.alignAssignments;
+    formatter.alignComments = normalized.alignComments;
 
     return { formatter, options: normalized };
 }

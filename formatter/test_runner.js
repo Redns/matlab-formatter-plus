@@ -340,6 +340,65 @@ function testForceSplitInlineIfAfterRegularStatementAddsBodySemicolon() {
     ].join("\n"));
 }
 
+function testAlignAssignmentsAndComments() {
+    const input = [
+        "perList{i, 2} = pd; % pd 检测概率",
+        "perList{i, 3} = pf; % pf 实际虚警率",
+        "perList{i, 4} = tp; % tp 真正类数目",
+        "perList{i, 5} = true_num; % 实际真样本数目",
+        "perList{i, 6} = positive_num; % 预测正类数目",
+        "perList{i, 7} = fp; % fp 虚假点数目",
+        "perList{i, 8} = fn; % fn 漏点数目",
+        "perList{i, 9} = ap; % ap 精确度",
+        "perList{i, 10} = ar; % ar 召回率",
+        "perList{i, 11} = miou; % miou 交并比",
+    ].join("\n");
+    const output = formatText(input, {
+        startLine: 1,
+        endLine: 999999,
+        alignAssignments: true,
+        alignComments: true,
+        separateBlocks: false,
+    });
+
+    assert.strictEqual(output, [
+        "perList{i, 2}  = pd;            % pd 检测概率",
+        "perList{i, 3}  = pf;            % pf 实际虚警率",
+        "perList{i, 4}  = tp;            % tp 真正类数目",
+        "perList{i, 5}  = true_num;      % 实际真样本数目",
+        "perList{i, 6}  = positive_num;  % 预测正类数目",
+        "perList{i, 7}  = fp;            % fp 虚假点数目",
+        "perList{i, 8}  = fn;            % fn 漏点数目",
+        "perList{i, 9}  = ap;            % ap 精确度",
+        "perList{i, 10} = ar;            % ar 召回率",
+        "perList{i, 11} = miou;          % miou 交并比",
+    ].join("\n"));
+}
+
+function testAlignAssignmentsSkipsComparisonsAndStrings() {
+    const input = [
+        "a = 1;",
+        "long_name = 'x = y';",
+        "if a == 1",
+        "b = 2;",
+        "end",
+    ].join("\n");
+    const output = formatText(input, {
+        startLine: 1,
+        endLine: 999999,
+        alignAssignments: true,
+        separateBlocks: false,
+    });
+
+    assert.strictEqual(output, [
+        "a         = 1;",
+        "long_name = 'x = y';",
+        "if a == 1",
+        "    b = 2;",
+        "end",
+    ].join("\n"));
+}
+
 function run() {
     testDefaultFixtureFormats();
     testAutoAppendSemicolonForRegularStatements();
@@ -358,6 +417,8 @@ function run() {
     testForceSplitInlineIfWithoutElsePreservesBodySemicolon();
     testAutoAppendSemicolonSkipsInlineIfWhenNotSplittingStatements();
     testForceSplitInlineIfAfterRegularStatementAddsBodySemicolon();
+    testAlignAssignmentsAndComments();
+    testAlignAssignmentsSkipsComparisonsAndStrings();
     console.log("formatter ok");
 }
 

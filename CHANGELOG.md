@@ -1,5 +1,12 @@
 # Change Log
 
+### 2.12.11
+
+features:
+
+- add `alignAssignments` to align top-level assignment operators across consecutive compatible statements
+- add `alignComments` to align trailing `%` comments across consecutive compatible statements
+
 ### 2.12.9
 
 bugfixes:

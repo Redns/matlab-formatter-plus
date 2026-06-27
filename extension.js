@@ -59,6 +59,8 @@ class MatlabFormatter {
                     autoAppendSemicolon: config.get('autoAppendSemicolon'),
                     removeUnnecessarySemicolons: config.get('removeUnnecessarySemicolons'),
                     forceSplitStatements: config.get('forceSplitStatements'),
+                    alignAssignments: config.get('alignAssignments'),
+                    alignComments: config.get('alignComments'),
                     startLine: range.start.line + 1,
                     endLine: range.end.line + 1,
                 });
